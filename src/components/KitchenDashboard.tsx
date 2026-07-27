@@ -1,0 +1,238 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { OrderData, OrderStatus } from "@/types";
+
+const STATUS_LABELS: Record<OrderStatus, string> = {
+  PENDING: "New Orders",
+  PREPARING: "Preparing",
+  READY: "Ready to Serve",
+  DONE: "Completed",
+  CANCELLED: "Cancelled",
+};
+
+const STATUS_COLORS: Record<OrderStatus, { bg: string; border: string; badge: string }> = {
+  PENDING: { bg: "bg-amber-50", border: "border-amber-200", badge: "bg-amber-100 text-amber-700" },
+  PREPARING: { bg: "bg-blue-50", border: "border-blue-200", badge: "bg-blue-100 text-blue-700" },
+  READY: { bg: "bg-green-50", border: "border-green-200", badge: "bg-green-100 text-green-700" },
+  DONE: { bg: "bg-slate-50", border: "border-slate-200", badge: "bg-slate-100 text-slate-600" },
+  CANCELLED: { bg: "bg-red-50", border: "border-red-200", badge: "bg-red-100 text-red-600" },
+};
+
+const NEXT_STATUS: Partial<Record<OrderStatus, OrderStatus>> = {
+  PENDING: "PREPARING",
+  PREPARING: "READY",
+  READY: "DONE",
+};
+
+const NEXT_LABEL: Partial<Record<OrderStatus, string>> = {
+  PENDING: "Start Preparing",
+  PREPARING: "Mark Ready",
+  READY: "Mark Done",
+};
+
+const ACTIVE_STATUSES: OrderStatus[] = ["PENDING", "PREPARING", "READY"];
+
+export default function KitchenDashboard() {
+  const [orders, setOrders] = useState<OrderData[]>([]);
+  const [filter, setFilter] = useState<OrderStatus | "ALL">("ALL");
+  const [loading, setLoading] = useState(true);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+
+  async function fetchOrders() {
+    try {
+      const res = await fetch("/api/orders");
+      if (res.ok) {
+        const data = await res.json();
+        setOrders(data);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    fetchOrders();
+    const interval = setInterval(fetchOrders, 15000);
+    return () => clearInterval(interval);
+  }, []);
+
+  async function updateStatus(orderId: string, status: OrderStatus) {
+    setUpdatingId(orderId);
+    try {
+      const res = await fetch(`/api/orders/${orderId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setOrders((prev) => prev.map((o) => (o.id === updated.id ? updated : o)));
+      }
+    } finally {
+      setUpdatingId(null);
+    }
+  }
+
+  const filteredOrders = orders.filter((o) => {
+    if (filter === "ALL") return ACTIVE_STATUSES.includes(o.status);
+    return o.status === filter;
+  });
+
+  const counts = orders.reduce(
+    (acc, o) => {
+      acc[o.status] = (acc[o.status] ?? 0) + 1;
+      return acc;
+    },
+    {} as Record<string, number>
+  );
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-32">
+        <div className="text-center">
+          <div className="text-5xl animate-pulse mb-4">🍳</div>
+          <p className="text-slate-500">Loading orders...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 py-6">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800">Kitchen Dashboard</h1>
+          <p className="text-slate-500 text-sm">Auto-refreshes every 15 seconds</p>
+        </div>
+        <button
+          onClick={fetchOrders}
+          className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium px-4 py-2 rounded-lg text-sm transition-colors"
+        >
+          ↻ Refresh
+        </button>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-3 gap-3 mb-6">
+        {ACTIVE_STATUSES.map((s) => (
+          <div key={s} className={`rounded-xl p-4 border ${STATUS_COLORS[s].bg} ${STATUS_COLORS[s].border}`}>
+            <div className="text-3xl font-bold text-slate-800">{counts[s] ?? 0}</div>
+            <div className="text-sm font-medium text-slate-600 mt-0.5">{STATUS_LABELS[s]}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Filter tabs */}
+      <div className="flex gap-2 mb-6 overflow-x-auto">
+        {(["ALL", ...ACTIVE_STATUSES, "DONE", "CANCELLED"] as const).map((s) => (
+          <button
+            key={s}
+            onClick={() => setFilter(s)}
+            className={`flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+              filter === s
+                ? "bg-slate-800 text-white"
+                : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
+            }`}
+          >
+            {s === "ALL" ? "Active Orders" : STATUS_LABELS[s]}
+            {s !== "ALL" && counts[s] ? (
+              <span className="ml-1.5 bg-white/20 rounded-full px-1.5 py-0.5 text-xs">
+                {counts[s]}
+              </span>
+            ) : null}
+          </button>
+        ))}
+      </div>
+
+      {/* Order cards */}
+      {filteredOrders.length === 0 ? (
+        <div className="text-center py-20 text-slate-400">
+          <div className="text-5xl mb-3">🍽️</div>
+          <p className="text-lg">No orders here</p>
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {filteredOrders.map((order) => {
+            const colors = STATUS_COLORS[order.status];
+            const nextStatus = NEXT_STATUS[order.status];
+            const nextLabel = NEXT_LABEL[order.status];
+            const isUpdating = updatingId === order.id;
+
+            return (
+              <div
+                key={order.id}
+                className={`rounded-xl border p-4 shadow-sm ${colors.bg} ${colors.border} flex flex-col gap-3`}
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-bold text-slate-800">
+                      #{order.id.slice(-6).toUpperCase()}
+                    </p>
+                    <p className="text-slate-600 text-sm">{order.customerName}</p>
+                  </div>
+                  <div className="text-right">
+                    <span
+                      className={`text-xs font-bold px-2 py-1 rounded-full ${colors.badge}`}
+                    >
+                      {order.type === "TABLE"
+                        ? `🍽️ ${order.table?.name ?? "Table"}`
+                        : "📦 Parcel"}
+                    </span>
+                    <p className="text-xs text-slate-400 mt-1">
+                      {new Date(order.createdAt).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  {order.items.map((item) => (
+                    <div key={item.id} className="flex justify-between text-sm">
+                      <span className="text-slate-700">
+                        {item.name} × {item.quantity}
+                      </span>
+                      <span className="text-slate-500">₹{(item.price * item.quantity).toFixed(0)}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {order.notes && (
+                  <div className="bg-white/60 rounded-lg px-3 py-2 text-sm text-slate-600 italic">
+                    "{order.notes}"
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between pt-1 border-t border-current/10">
+                  <span className="font-bold text-slate-800">₹{order.total.toFixed(0)}</span>
+                  <div className="flex gap-2">
+                    {order.status !== "DONE" && order.status !== "CANCELLED" && (
+                      <button
+                        onClick={() => updateStatus(order.id, "CANCELLED")}
+                        disabled={isUpdating}
+                        className="text-xs text-red-500 hover:text-red-700 font-medium disabled:opacity-50"
+                      >
+                        Cancel
+                      </button>
+                    )}
+                    {nextStatus && (
+                      <button
+                        onClick={() => updateStatus(order.id, nextStatus)}
+                        disabled={isUpdating}
+                        className="bg-slate-800 hover:bg-slate-700 disabled:bg-slate-400 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-colors"
+                      >
+                        {isUpdating ? "..." : nextLabel}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}

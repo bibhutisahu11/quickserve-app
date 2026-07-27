@@ -1,0 +1,85 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Admin {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String?
+  createdAt    DateTime @default(now())
+}
+
+model Table {
+  id       String  @id @default(cuid())
+  name     String
+  qrToken  String  @unique @default(cuid())
+  capacity Int     @default(4)
+  active   Boolean @default(true)
+  orders   Order[]
+
+  @@map("tables")
+}
+
+model MenuItem {
+  id          String      @id @default(cuid())
+  name        String
+  description String?
+  price       Float
+  category    String
+  imageUrl    String?
+  available   Boolean     @default(true)
+  sortOrder   Int         @default(0)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  orderItems  OrderItem[]
+
+  @@map("menu_items")
+}
+
+model Order {
+  id           String      @id @default(cuid())
+  type         OrderType
+  tableId      String?
+  table        Table?      @relation(fields: [tableId], references: [id])
+  customerName String
+  phone        String?
+  notes        String?
+  status       OrderStatus @default(PENDING)
+  total        Float
+  items        OrderItem[]
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id         String   @id @default(cuid())
+  orderId    String
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItemId String
+  menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
+  name       String
+  price      Float
+  quantity   Int
+
+  @@map("order_items")
+}
+
+enum OrderType {
+  TABLE
+  PARCEL
+}
+
+enum OrderStatus {
+  PENDING
+  PREPARING
+  READY
+  DONE
+  CANCELLED
+}

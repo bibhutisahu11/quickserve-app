@@ -1,0 +1,87 @@
+"use client";
+
+import { CartItem } from "@/types";
+
+interface CartDrawerProps {
+  cart: CartItem[];
+  onAdd: (itemId: string) => void;
+  onRemove: (itemId: string) => void;
+  onCheckout: () => void;
+  open: boolean;
+  onClose: () => void;
+}
+
+export default function CartDrawer({
+  cart,
+  onAdd,
+  onRemove,
+  onCheckout,
+  open,
+  onClose,
+}: CartDrawerProps) {
+  const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const itemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-2xl max-h-[80vh] flex flex-col">
+        <div className="flex items-center justify-between p-5 border-b border-slate-100">
+          <h2 className="text-xl font-bold text-slate-800">
+            Your Order ({itemCount} item{itemCount !== 1 ? "s" : ""})
+          </h2>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center text-slate-500 hover:bg-slate-200"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="overflow-y-auto flex-1 px-5 py-3 space-y-3">
+          {cart.map((item) => (
+            <div key={item.menuItemId} className="flex items-center justify-between">
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-slate-800 truncate">{item.name}</p>
+                <p className="text-slate-500 text-sm">₹{item.price.toFixed(2)} each</p>
+              </div>
+              <div className="flex items-center gap-2 ml-3">
+                <button
+                  onClick={() => onRemove(item.menuItemId)}
+                  className="w-7 h-7 bg-slate-100 hover:bg-slate-200 rounded-full text-slate-700 font-bold flex items-center justify-center transition-colors text-sm"
+                >
+                  −
+                </button>
+                <span className="w-5 text-center font-semibold">{item.quantity}</span>
+                <button
+                  onClick={() => onAdd(item.menuItemId)}
+                  className="w-7 h-7 bg-amber-500 hover:bg-amber-600 rounded-full text-white font-bold flex items-center justify-center transition-colors text-sm"
+                >
+                  +
+                </button>
+                <span className="w-16 text-right font-semibold text-slate-800">
+                  ₹{(item.price * item.quantity).toFixed(2)}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="p-5 border-t border-slate-100">
+          <div className="flex justify-between items-center mb-4">
+            <span className="text-lg font-semibold text-slate-700">Total</span>
+            <span className="text-2xl font-bold text-amber-600">₹{total.toFixed(2)}</span>
+          </div>
+          <button
+            onClick={onCheckout}
+            className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-3.5 rounded-xl text-lg transition-colors"
+          >
+            Proceed to Checkout →
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

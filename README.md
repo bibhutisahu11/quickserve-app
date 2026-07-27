@@ -1,36 +1,108 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Hotel QR Code Ordering System
 
-## Getting Started
+A full-stack QR code ordering system for hotels and restaurants. Customers scan a QR code at their table to browse the menu and place dine-in orders, or visit a shareable URL to place parcel/takeaway orders.
 
-First, run the development server:
+## Features
 
+- **Table Orders** — Each table has a unique QR code. Customers scan it to open the menu directly for their table.
+- **Parcel Orders** — A shareable URL (`/menu/parcel`) lets walk-in customers place takeaway orders.
+- **Live Order Tracking** — Customers see real-time status: Pending → Preparing → Ready → Done.
+- **Kitchen Dashboard** — Staff see all active orders, update status with one click, auto-refreshes every 15s.
+- **Menu Management** — Add, edit, toggle availability, and delete menu items with categories.
+- **QR Code Generator** — Create tables and download print-ready QR PNGs from the admin panel.
+- **Admin Auth** — Secure login for staff/admin.
+
+## Tech Stack
+
+- **Next.js 16** (App Router) + TypeScript + Tailwind CSS
+- **Prisma 7** + PostgreSQL
+- **NextAuth.js** for admin authentication
+- **qrcode** npm package for QR generation
+- Deployed on **Vercel** with **Vercel Postgres**
+
+## Local Development
+
+### 1. Install dependencies
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Set up environment
+```bash
+cp .env.example .env
+# Edit .env and set your DATABASE_URL
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 3. Run database migrations
+```bash
+npx prisma migrate dev --name init
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 4. Seed the database (creates demo admin + menu)
+```bash
+npm run db:seed
+```
+Default admin: `admin@hotel.com` / `admin123`
 
-## Learn More
+### 5. Start dev server
+```bash
+npm run dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+Visit `http://localhost:3000`
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Pages
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+| URL | Description |
+|-----|-------------|
+| `/menu/parcel` | Parcel / takeaway order page (public) |
+| `/menu/[qrToken]` | Table order page — opened when QR is scanned |
+| `/order/[orderId]` | Order confirmation & live status tracker |
+| `/admin` | Admin login |
+| `/admin/dashboard` | Kitchen order queue |
+| `/admin/menu` | Menu management |
+| `/admin/tables` | Table management + QR download |
 
-## Deploy on Vercel
+## Deploying to Vercel
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+1. Push this repo to GitHub
+2. Go to [vercel.com](https://vercel.com) → New Project → Import from GitHub
+3. In the Vercel dashboard, go to **Storage** → **Create** → **Postgres** (free tier)
+4. Connect the Postgres database to your project
+5. Add these environment variables:
+   - `DATABASE_URL` — from Vercel Postgres (auto-added when you connect the DB)
+   - `NEXTAUTH_SECRET` — run `openssl rand -base64 32` to generate one
+   - `NEXTAUTH_URL` — your Vercel deployment URL, e.g. `https://my-hotel.vercel.app`
+6. Set the build command to: `prisma migrate deploy && next build`
+7. Deploy!
+8. After first deploy, create your admin by calling:
+   ```
+   POST https://your-app.vercel.app/api/admin/setup
+   Body: { "email": "you@hotel.com", "password": "yourpassword", "name": "Admin" }
+   ```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## QR Code Workflow
+
+1. Log in to `/admin`
+2. Go to **Tables & QR** → Add tables (e.g. "Table 1", "Table 2", "VIP Room")
+3. Click **Download QR** for each table → print and place on table
+4. Customers scan the QR → they land on the menu → add items → checkout
+
+## Project Structure
+
+```
+hotel-qr-system/
+├── prisma/
+│   ├── schema.prisma       # DB models
+│   └── seed.ts             # Demo data seed
+├── src/
+│   ├── app/
+│   │   ├── menu/           # Customer-facing menu pages
+│   │   ├── order/          # Order status page
+│   │   ├── admin/          # Admin pages (login, dashboard, menu, tables)
+│   │   └── api/            # REST API routes
+│   ├── components/         # Shared React components
+│   ├── lib/                # Prisma client, auth config
+│   └── types/              # TypeScript types
+└── prisma.config.ts        # Prisma 7 datasource config
+```
