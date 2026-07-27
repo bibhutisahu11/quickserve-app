@@ -6,6 +6,8 @@ import { signOut } from "next-auth/react";
 
 const navLinks = [
   { href: "/admin/dashboard", label: "Orders", icon: "📋" },
+  { href: "/admin/analytics", label: "Analytics", icon: "📊" },
+  { href: "/admin/customers", label: "Customers", icon: "👥" },
   { href: "/admin/menu", label: "Menu", icon: "🍴" },
   { href: "/admin/tables", label: "Tables & QR", icon: "📱" },
 ];
