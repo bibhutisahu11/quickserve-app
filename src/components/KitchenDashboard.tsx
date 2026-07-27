@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { OrderData, OrderStatus } from "@/types";
+import { playNewOrderSound } from "@/lib/notificationSound";
 
 const STATUS_LABELS: Record<OrderStatus, string> = {
   PENDING: "New Orders",
@@ -38,12 +39,32 @@ export default function KitchenDashboard() {
   const [filter, setFilter] = useState<OrderStatus | "ALL">("ALL");
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [newOrderFlash, setNewOrderFlash] = useState(false);
+  const knownOrderIds = useRef<Set<string>>(new Set());
+  const isFirstLoad = useRef(true);
 
   async function fetchOrders() {
     try {
       const res = await fetch("/api/orders");
       if (res.ok) {
-        const data = await res.json();
+        const data: OrderData[] = await res.json();
+
+        // Detect brand-new PENDING orders on subsequent polls
+        if (!isFirstLoad.current) {
+          const newOrders = data.filter(
+            (o) => o.status === "PENDING" && !knownOrderIds.current.has(o.id)
+          );
+          if (newOrders.length > 0) {
+            if (soundEnabled) playNewOrderSound();
+            setNewOrderFlash(true);
+            setTimeout(() => setNewOrderFlash(false), 2000);
+          }
+        }
+
+        // Update known IDs
+        data.forEach((o) => knownOrderIds.current.add(o.id));
+        isFirstLoad.current = false;
         setOrders(data);
       }
     } finally {
@@ -55,7 +76,8 @@ export default function KitchenDashboard() {
     fetchOrders();
     const interval = setInterval(fetchOrders, 15000);
     return () => clearInterval(interval);
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [soundEnabled]);
 
   async function updateStatus(orderId: string, status: OrderStatus) {
     setUpdatingId(orderId);
@@ -102,15 +124,35 @@ export default function KitchenDashboard() {
     <div className="max-w-7xl mx-auto px-4 py-6">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Kitchen Dashboard</h1>
+          <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-3">
+            Kitchen Dashboard
+            {newOrderFlash && (
+              <span className="animate-bounce bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full">
+                🔔 New Order!
+              </span>
+            )}
+          </h1>
           <p className="text-slate-500 text-sm">Auto-refreshes every 15 seconds</p>
         </div>
-        <button
-          onClick={fetchOrders}
-          className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium px-4 py-2 rounded-lg text-sm transition-colors"
-        >
-          ↻ Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setSoundEnabled((s) => !s)}
+            title={soundEnabled ? "Mute order alerts" : "Unmute order alerts"}
+            className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              soundEnabled
+                ? "bg-amber-100 text-amber-700 hover:bg-amber-200"
+                : "bg-slate-100 text-slate-400 hover:bg-slate-200"
+            }`}
+          >
+            {soundEnabled ? "🔔 Sound On" : "🔕 Sound Off"}
+          </button>
+          <button
+            onClick={fetchOrders}
+            className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium px-4 py-2 rounded-lg text-sm transition-colors"
+          >
+            ↻ Refresh
+          </button>
+        </div>
       </div>
 
       {/* Stats */}
