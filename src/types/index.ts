@@ -45,6 +45,7 @@ export interface OrderData {
   notes: string | null;
   status: OrderStatus;
   total: number;
+  paymentId: string | null;
   items: OrderItemData[];
   createdAt: string;
   updatedAt: string;

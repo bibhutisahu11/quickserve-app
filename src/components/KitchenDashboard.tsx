@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { OrderData, OrderStatus } from "@/types";
 import { playNewOrderSound } from "@/lib/notificationSound";
+import { exportOrdersToCsv } from "@/lib/exportCsv";
 
 const STATUS_LABELS: Record<OrderStatus, string> = {
   PENDING: "New Orders",
@@ -41,6 +42,7 @@ export default function KitchenDashboard() {
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [newOrderFlash, setNewOrderFlash] = useState(false);
+  const [exportDate, setExportDate] = useState(new Date().toISOString().slice(0, 10));
   const knownOrderIds = useRef<Set<string>>(new Set());
   const isFirstLoad = useRef(true);
 
@@ -151,6 +153,45 @@ export default function KitchenDashboard() {
             className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium px-4 py-2 rounded-lg text-sm transition-colors"
           >
             ↻ Refresh
+          </button>
+        </div>
+      </div>
+
+      {/* EZO Export Panel */}
+      <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 mb-6 flex flex-wrap items-center gap-3">
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold text-blue-800 text-sm">Export to EZO Books</p>
+          <p className="text-blue-600 text-xs mt-0.5">Download orders as CSV — import directly into EZO Books</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            type="date"
+            value={exportDate}
+            onChange={(e) => setExportDate(e.target.value)}
+            className="border border-blue-300 rounded-lg px-3 py-1.5 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+          />
+          <button
+            onClick={() => {
+              const filtered = orders.filter((o) => {
+                const d = new Date(o.createdAt).toISOString().slice(0, 10);
+                return d === exportDate;
+              });
+              if (filtered.length === 0) {
+                alert(`No orders found for ${exportDate}`);
+                return;
+              }
+              exportOrdersToCsv(filtered);
+            }}
+            className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-1.5 rounded-lg transition-colors whitespace-nowrap"
+          >
+            📥 Export CSV
+          </button>
+          <button
+            onClick={() => exportOrdersToCsv(orders)}
+            className="bg-slate-600 hover:bg-slate-700 text-white text-sm font-medium px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap"
+            title="Export all orders"
+          >
+            All
           </button>
         </div>
       </div>
