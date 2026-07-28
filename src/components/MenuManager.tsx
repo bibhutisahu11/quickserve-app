@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { MenuItemData } from "@/types";
+import MenuScanner from "./MenuScanner";
 
 const EMPTY_FORM = {
   name: "",
@@ -22,6 +23,7 @@ export default function MenuManager() {
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [scannerOpen, setScannerOpen] = useState(false);
 
   async function fetchItems() {
     const res = await fetch("/api/menu");
@@ -139,12 +141,20 @@ export default function MenuManager() {
           <h1 className="text-2xl font-bold text-slate-800">Menu Management</h1>
           <p className="text-slate-500 text-sm">{items.length} items total</p>
         </div>
-        <button
-          onClick={openCreate}
-          className="bg-amber-500 hover:bg-amber-600 text-white font-semibold px-5 py-2.5 rounded-xl transition-colors flex items-center gap-2"
-        >
-          + Add Item
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setScannerOpen(true)}
+            className="bg-violet-500 hover:bg-violet-600 text-white font-semibold px-4 py-2.5 rounded-xl transition-colors flex items-center gap-2"
+          >
+            📷 Scan Menu
+          </button>
+          <button
+            onClick={openCreate}
+            className="bg-amber-500 hover:bg-amber-600 text-white font-semibold px-5 py-2.5 rounded-xl transition-colors flex items-center gap-2"
+          >
+            + Add Item
+          </button>
+        </div>
       </div>
 
       <input
@@ -233,6 +243,14 @@ export default function MenuManager() {
             </div>
           ))}
         </div>
+      )}
+
+      {/* Scanner modal */}
+      {scannerOpen && (
+        <MenuScanner
+          onClose={() => setScannerOpen(false)}
+          onImported={() => { fetchItems(); setScannerOpen(false); }}
+        />
       )}
 
       {/* Form modal */}
