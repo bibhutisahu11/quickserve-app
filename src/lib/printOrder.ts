@@ -12,6 +12,15 @@ function logoHtml(url: string | null | undefined) {
     style="max-height:60px;max-width:160px;object-fit:contain;display:block;margin:0 auto 4px;" />`;
 }
 
+/** Receipt number: DDMM-SERIAL  e.g. 2807-A3F9 */
+function receiptNo(orderId: string, createdAt: string) {
+  const d = new Date(createdAt);
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const serial = orderId.slice(-4).toUpperCase();
+  return `${dd}${mm}-${serial}`;
+}
+
 // ── single order receipt ───────────────────────────────────────────────────────
 
 export function printOrder(order: OrderData, org?: Partial<OrgSettings> | null) {
@@ -52,7 +61,7 @@ export function printOrder(order: OrderData, org?: Partial<OrgSettings> | null) 
 <html>
 <head>
   <meta charset="utf-8"/>
-  <title>Order #${order.id.slice(-6).toUpperCase()}</title>
+  <title>Receipt ${receiptNo(order.id, order.createdAt)}</title>
   <style>
     * { margin:0; padding:0; box-sizing:border-box; }
     body {
@@ -85,7 +94,7 @@ export function printOrder(order: OrderData, org?: Partial<OrgSettings> | null) 
   <hr class="divider"/>
 
   <div style="display:flex;justify-content:space-between;">
-    <span class="bold">#${order.id.slice(-6).toUpperCase()}</span>
+    <span class="bold">Rcpt# ${receiptNo(order.id, order.createdAt)}</span>
     <span>${order.type === "TABLE" ? `Table: ${esc(order.table?.name ?? "?")}` : "Parcel / Takeaway"}</span>
   </div>
   <div style="font-size:12px;color:#444;margin-top:2px;">${time}</div>
@@ -148,7 +157,7 @@ export function printAllOrders(
     .map(
       (o) => `
       <tr>
-        <td style="padding:4px 6px;font-size:12px;border-bottom:1px solid #eee;">#${o.id.slice(-6).toUpperCase()}</td>
+        <td style="padding:4px 6px;font-size:12px;border-bottom:1px solid #eee;">${receiptNo(o.id, o.createdAt)}</td>
         <td style="padding:4px 6px;font-size:12px;border-bottom:1px solid #eee;">${esc(o.customerName)}</td>
         <td style="padding:4px 6px;font-size:12px;border-bottom:1px solid #eee;">${esc(o.phone ?? "—")}</td>
         <td style="padding:4px 6px;font-size:12px;border-bottom:1px solid #eee;">${o.type === "TABLE" ? esc(o.table?.name ?? "Table") : "Parcel"}</td>
