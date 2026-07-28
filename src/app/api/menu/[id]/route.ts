@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getOrgContext } from "@/lib/orgGuard";
 import { prisma } from "@/lib/prisma";
 
 export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const ctx = await getOrgContext(req, {
+    requireRoles: ["SUPER_ADMIN", "HOTEL_ADMIN", "MANAGER"],
+  });
+  if (ctx.error) return ctx.error;
 
   try {
     const { id } = await params;
@@ -16,7 +17,7 @@ export async function PUT(
     const { name, description, price, category, imageUrl, available, sortOrder } = body;
 
     const item = await prisma.menuItem.update({
-      where: { id },
+      where: { id, ...(ctx.orgId ? { orgId: ctx.orgId } : {}) },
       data: {
         ...(name && { name }),
         ...(description !== undefined && { description }),
@@ -38,12 +39,16 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const ctx = await getOrgContext(req, {
+    requireRoles: ["SUPER_ADMIN", "HOTEL_ADMIN"],
+  });
+  if (ctx.error) return ctx.error;
 
   try {
     const { id } = await params;
-    await prisma.menuItem.delete({ where: { id } });
+    await prisma.menuItem.delete({
+      where: { id, ...(ctx.orgId ? { orgId: ctx.orgId } : {}) },
+    });
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error(err);

@@ -1,33 +1,45 @@
 "use client";
 
 import { useState } from "react";
-import { signIn } from "next-auth/react";
+import { signIn, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+
+function getRoleLanding(role: string) {
+  if (role === "SUPER_ADMIN") return "/superadmin/dashboard";
+  if (role === "KITCHEN") return "/admin/kitchen";
+  if (role === "WAITER") return "/admin/orders";
+  return "/admin/dashboard";
+}
 
 export default function AdminLoginPage() {
   const router = useRouter();
+  const { data: session } = useSession();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // If already logged in, redirect to role-appropriate page
+  useEffect(() => {
+    if (session?.user?.role) {
+      router.replace(getRoleLanding(session.user.role));
+    }
+  }, [session, router]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
     setLoading(true);
 
-    const result = await signIn("credentials", {
-      email,
-      password,
-      redirect: false,
-    });
-
+    const result = await signIn("credentials", { email, password, redirect: false });
     setLoading(false);
 
     if (result?.error) {
       setError("Invalid email or password");
     } else {
-      router.push("/admin/dashboard");
+      // Session will update and the useEffect will redirect
+      router.refresh();
     }
   }
 

@@ -1,11 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getOrgContext } from "@/lib/orgGuard";
 import { prisma } from "@/lib/prisma";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const { searchParams } = new URL(req.url);
+    const orgSlug = searchParams.get("orgSlug");
+    const orgId = searchParams.get("orgId");
+
+    // Resolve org filter: by id, by slug, or public (no filter)
+    let resolvedOrgId: string | undefined;
+    if (orgId) {
+      resolvedOrgId = orgId;
+    } else if (orgSlug) {
+      const org = await prisma.organization.findUnique({ where: { slug: orgSlug } });
+      if (!org) return NextResponse.json([], { status: 200 });
+      resolvedOrgId = org.id;
+    }
+
     const items = await prisma.menuItem.findMany({
+      where: { ...(resolvedOrgId ? { orgId: resolvedOrgId } : {}) },
       orderBy: [{ category: "asc" }, { sortOrder: "asc" }, { name: "asc" }],
     });
     return NextResponse.json(items);
@@ -16,8 +30,10 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const ctx = await getOrgContext(req, {
+    requireRoles: ["SUPER_ADMIN", "HOTEL_ADMIN", "MANAGER"],
+  });
+  if (ctx.error) return ctx.error;
 
   try {
     const body = await req.json();
@@ -44,6 +60,7 @@ export async function POST(req: NextRequest) {
                 imageUrl: it.imageUrl ?? null,
                 available: it.available ?? true,
                 sortOrder: it.sortOrder ?? 0,
+                orgId: ctx.orgId,
               },
             })
         )
@@ -52,9 +69,11 @@ export async function POST(req: NextRequest) {
     }
 
     const { name, description, price, category, imageUrl, available, sortOrder } = body;
-
     if (!name || !price || !category) {
-      return NextResponse.json({ error: "name, price, and category are required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "name, price, and category are required" },
+        { status: 400 }
+      );
     }
 
     const item = await prisma.menuItem.create({
@@ -66,6 +85,7 @@ export async function POST(req: NextRequest) {
         imageUrl: imageUrl ?? null,
         available: available ?? true,
         sortOrder: sortOrder ?? 0,
+        orgId: ctx.orgId,
       },
     });
     return NextResponse.json(item, { status: 201 });

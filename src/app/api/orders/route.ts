@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getOrgContext } from "@/lib/orgGuard";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const ctx = await getOrgContext(req);
+  if (ctx.error) return ctx.error;
 
   try {
     const { searchParams } = new URL(req.url);
@@ -14,6 +13,7 @@ export async function GET(req: NextRequest) {
 
     const orders = await prisma.order.findMany({
       where: {
+        ...(ctx.orgId ? { orgId: ctx.orgId } : {}),
         ...(status && { status: status as never }),
         ...(type && { type: type as never }),
       },
@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { type, tableToken, customerName, phone, notes, items } = body;
+    const { type, tableToken, orgSlug, customerName, phone, notes, items } = body;
 
     if (!type || !customerName || !items?.length) {
       return NextResponse.json(
@@ -39,22 +39,36 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Resolve table
+    // Resolve org and table
     let tableId: string | null = null;
+    let orgId: string | null = null;
+
     if (type === "TABLE") {
       if (!tableToken) {
         return NextResponse.json({ error: "tableToken required for table orders" }, { status: 400 });
       }
-      const table = await prisma.table.findUnique({ where: { qrToken: tableToken } });
+      const table = await prisma.table.findUnique({
+        where: { qrToken: tableToken },
+        include: { org: true },
+      });
       if (!table) return NextResponse.json({ error: "Invalid table token" }, { status: 404 });
       if (!table.active) return NextResponse.json({ error: "Table is not active" }, { status: 400 });
       tableId = table.id;
+      orgId = table.orgId ?? null;
+    } else if (orgSlug) {
+      // Parcel orders carry orgSlug so we can scope correctly
+      const org = await prisma.organization.findUnique({ where: { slug: orgSlug } });
+      if (org) orgId = org.id;
     }
 
-    // Validate menu items and compute total
+    // Validate menu items scoped to org
     const menuItemIds: string[] = items.map((i: { menuItemId: string }) => i.menuItemId);
     const menuItems = await prisma.menuItem.findMany({
-      where: { id: { in: menuItemIds }, available: true },
+      where: {
+        id: { in: menuItemIds },
+        available: true,
+        ...(orgId ? { orgId } : {}),
+      },
     });
 
     if (menuItems.length !== menuItemIds.length) {
@@ -78,6 +92,7 @@ export async function POST(req: NextRequest) {
       data: {
         type,
         tableId,
+        orgId,
         customerName,
         phone: phone ?? null,
         notes: notes ?? null,

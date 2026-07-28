@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getOrgContext } from "@/lib/orgGuard";
 import OpenAI from "openai";
 
 export interface ScannedMenuItem {
@@ -35,8 +34,8 @@ Rules:
 - Return ONLY valid JSON, nothing else.`;
 
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const ctx = await getOrgContext(req);
+  if (ctx.error) return ctx.error;
 
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {

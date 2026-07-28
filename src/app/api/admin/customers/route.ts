@@ -1,20 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getOrgContext } from "@/lib/orgGuard";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const ctx = await getOrgContext(req, {
+    requireRoles: ["SUPER_ADMIN", "HOTEL_ADMIN", "MANAGER"],
+  });
+  if (ctx.error) return ctx.error;
 
   try {
     const { searchParams } = new URL(req.url);
     const search = searchParams.get("search") ?? "";
+    const orgFilter = ctx.orgId ? { orgId: ctx.orgId } : {};
 
     const orders = await prisma.order.findMany({
       where: {
+        ...orgFilter,
         status: { not: "CANCELLED" },
         ...(search
           ? {
@@ -39,7 +42,6 @@ export async function GET(req: NextRequest) {
       orderBy: { createdAt: "desc" },
     });
 
-    // Group by phone number (unique customer identifier)
     const customerMap = new Map<
       string,
       {
@@ -63,7 +65,7 @@ export async function GET(req: NextRequest) {
         existing.orderCount += 1;
         if (new Date(order.createdAt) > new Date(existing.lastOrderAt)) {
           existing.lastOrderAt = order.createdAt.toISOString();
-          existing.name = order.customerName; // update to latest name used
+          existing.name = order.customerName;
         }
         existing.orders.push(order);
       } else {
@@ -80,7 +82,6 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Find favourite item per customer
     const customers = Array.from(customerMap.values()).map((c) => {
       const itemCount: Record<string, number> = {};
       for (const o of c.orders) {
@@ -109,9 +110,7 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    // Sort by total spent desc
     customers.sort((a, b) => b.totalSpent - a.totalSpent);
-
     return NextResponse.json({ customers, total: customers.length });
   } catch (err) {
     console.error(err);

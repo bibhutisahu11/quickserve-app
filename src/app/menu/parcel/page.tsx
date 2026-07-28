@@ -1,13 +1,6 @@
-export const dynamic = "force-dynamic";
+import { redirect } from "next/navigation";
 
-import { prisma } from "@/lib/prisma";
-import MenuPage from "@/components/MenuPage";
-
-export default async function ParcelMenuPage() {
-  const menuItems = await prisma.menuItem.findMany({
-    where: { available: true },
-    orderBy: [{ category: "asc" }, { sortOrder: "asc" }],
-  });
-
-  return <MenuPage menuItems={menuItems} />;
+// Legacy redirect → use /{orgSlug}/menu/parcel
+export default function LegacyParcelPage() {
+  redirect("/my-hotel/menu/parcel");
 }

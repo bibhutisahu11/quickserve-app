@@ -6,55 +6,90 @@ datasource db {
   provider = "postgresql"
 }
 
+enum Role {
+  SUPER_ADMIN
+  HOTEL_ADMIN
+  MANAGER
+  WAITER
+  KITCHEN
+}
+
+model Organization {
+  id        String     @id @default(cuid())
+  name      String
+  slug      String     @unique
+  logoUrl   String?
+  active    Boolean    @default(true)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  admins    Admin[]
+  tables    Table[]
+  menuItems MenuItem[]
+  orders    Order[]
+
+  @@map("organizations")
+}
+
 model Admin {
-  id           String   @id @default(cuid())
-  email        String   @unique
+  id           String        @id @default(cuid())
+  email        String        @unique
   passwordHash String
   name         String?
-  createdAt    DateTime @default(now())
+  role         Role          @default(HOTEL_ADMIN)
+  orgId        String?
+  org          Organization? @relation(fields: [orgId], references: [id])
+  createdAt    DateTime      @default(now())
+
+  @@map("admins")
 }
 
 model Table {
-  id       String  @id @default(cuid())
+  id       String        @id @default(cuid())
   name     String
-  qrToken  String  @unique @default(cuid())
-  capacity Int     @default(4)
-  active   Boolean @default(true)
+  qrToken  String        @unique @default(cuid())
+  capacity Int           @default(4)
+  active   Boolean       @default(true)
+  orgId    String?
+  org      Organization? @relation(fields: [orgId], references: [id])
   orders   Order[]
 
   @@map("tables")
 }
 
 model MenuItem {
-  id          String      @id @default(cuid())
+  id          String        @id @default(cuid())
   name        String
   description String?
   price       Float
   category    String
   imageUrl    String?
-  available   Boolean     @default(true)
-  sortOrder   Int         @default(0)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  available   Boolean       @default(true)
+  sortOrder   Int           @default(0)
+  orgId       String?
+  org         Organization? @relation(fields: [orgId], references: [id])
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
   orderItems  OrderItem[]
 
   @@map("menu_items")
 }
 
 model Order {
-  id           String      @id @default(cuid())
+  id           String        @id @default(cuid())
   type         OrderType
   tableId      String?
-  table        Table?      @relation(fields: [tableId], references: [id])
+  table        Table?        @relation(fields: [tableId], references: [id])
   customerName String
   phone        String?
   notes        String?
-  status       OrderStatus @default(PENDING)
+  status       OrderStatus   @default(PENDING)
   total        Float
   paymentId    String?
+  orgId        String?
+  org          Organization? @relation(fields: [orgId], references: [id])
   items        OrderItem[]
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
 
   @@map("orders")
 }

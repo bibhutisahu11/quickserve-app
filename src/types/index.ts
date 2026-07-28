@@ -1,5 +1,6 @@
 export type OrderType = "TABLE" | "PARCEL";
 export type OrderStatus = "PENDING" | "PREPARING" | "READY" | "DONE" | "CANCELLED";
+export type UserRole = "SUPER_ADMIN" | "HOTEL_ADMIN" | "MANAGER" | "WAITER" | "KITCHEN";
 
 export interface CartItem {
   menuItemId: string;
@@ -49,4 +50,21 @@ export interface OrderData {
   items: OrderItemData[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface StaffMember {
+  id: string;
+  email: string;
+  name: string | null;
+  role: UserRole;
+  createdAt: string;
+}
+
+export interface OrgData {
+  id: string;
+  name: string;
+  slug: string;
+  logoUrl: string | null;
+  active: boolean;
+  createdAt: string;
 }

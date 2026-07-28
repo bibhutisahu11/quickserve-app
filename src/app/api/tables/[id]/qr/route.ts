@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getOrgContext } from "@/lib/orgGuard";
 import { prisma } from "@/lib/prisma";
 import QRCode from "qrcode";
 
@@ -8,16 +7,20 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const ctx = await getOrgContext(req);
+  if (ctx.error) return ctx.error;
 
   try {
     const { id } = await params;
-    const table = await prisma.table.findUnique({ where: { id } });
+    const table = await prisma.table.findUnique({
+      where: { id, ...(ctx.orgId ? { orgId: ctx.orgId } : {}) },
+      include: { org: true },
+    });
     if (!table) return NextResponse.json({ error: "Table not found" }, { status: 404 });
 
     const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
-    const url = `${baseUrl}/menu/${table.qrToken}`;
+    const orgSlug = table.org?.slug ?? "my-hotel";
+    const url = `${baseUrl}/${orgSlug}/menu/${table.qrToken}`;
 
     const qrBuffer = await QRCode.toBuffer(url, {
       width: 400,

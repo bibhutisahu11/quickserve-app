@@ -2,28 +2,26 @@ import { NextRequest, NextResponse } from "next/server";
 import { getOrgContext } from "@/lib/orgGuard";
 import { prisma } from "@/lib/prisma";
 
-export async function PUT(
+export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const ctx = await getOrgContext(req, {
-    requireRoles: ["SUPER_ADMIN", "HOTEL_ADMIN"],
-  });
+  const ctx = await getOrgContext(req, { requireRoles: ["SUPER_ADMIN"] });
   if (ctx.error) return ctx.error;
 
   try {
     const { id } = await params;
-    const { name, capacity, active } = await req.json();
+    const { name, logoUrl, active } = await req.json();
 
-    const table = await prisma.table.update({
-      where: { id, ...(ctx.orgId ? { orgId: ctx.orgId } : {}) },
+    const org = await prisma.organization.update({
+      where: { id },
       data: {
         ...(name && { name }),
-        ...(capacity !== undefined && { capacity }),
+        ...(logoUrl !== undefined && { logoUrl }),
         ...(active !== undefined && { active }),
       },
     });
-    return NextResponse.json(table);
+    return NextResponse.json(org);
   } catch (err) {
     console.error(err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
@@ -34,17 +32,17 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const ctx = await getOrgContext(req, {
-    requireRoles: ["SUPER_ADMIN", "HOTEL_ADMIN"],
-  });
+  const ctx = await getOrgContext(req, { requireRoles: ["SUPER_ADMIN"] });
   if (ctx.error) return ctx.error;
 
   try {
     const { id } = await params;
-    await prisma.table.delete({
-      where: { id, ...(ctx.orgId ? { orgId: ctx.orgId } : {}) },
+    // Soft-delete: deactivate the org
+    const org = await prisma.organization.update({
+      where: { id },
+      data: { active: false },
     });
-    return NextResponse.json({ success: true });
+    return NextResponse.json(org);
   } catch (err) {
     console.error(err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

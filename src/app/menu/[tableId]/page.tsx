@@ -1,31 +1,26 @@
-export const dynamic = "force-dynamic";
-
-import { notFound } from "next/navigation";
-import { prisma } from "@/lib/prisma";
-import MenuPage from "@/components/MenuPage";
+import { redirect } from "next/navigation";
 
 interface Props {
   params: Promise<{ tableId: string }>;
 }
 
-export default async function TableMenuPage({ params }: Props) {
+// Legacy redirect → table QR codes now use /{orgSlug}/menu/{tableId}
+// Look up the table's org slug and redirect
+export const dynamic = "force-dynamic";
+
+import { prisma } from "@/lib/prisma";
+import { notFound } from "next/navigation";
+
+export default async function LegacyTableMenuPage({ params }: Props) {
   const { tableId } = await params;
 
-  const [table, menuItems] = await Promise.all([
-    prisma.table.findUnique({ where: { qrToken: tableId } }),
-    prisma.menuItem.findMany({
-      where: { available: true },
-      orderBy: [{ category: "asc" }, { sortOrder: "asc" }],
-    }),
-  ]);
+  const table = await prisma.table.findUnique({
+    where: { qrToken: tableId },
+    include: { org: true },
+  });
 
   if (!table || !table.active) notFound();
 
-  return (
-    <MenuPage
-      menuItems={menuItems}
-      tableToken={table.qrToken}
-      tableName={table.name}
-    />
-  );
+  const slug = table.org?.slug ?? "my-hotel";
+  redirect(`/${slug}/menu/${tableId}`);
 }

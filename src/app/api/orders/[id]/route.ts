@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getOrgContext } from "@/lib/orgGuard";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(
-  req: NextRequest,
+  _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -25,8 +24,10 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const ctx = await getOrgContext(req);
+  if (ctx.error) return ctx.error;
+
+  const role = ctx.role ?? "";
 
   try {
     const { id } = await params;
@@ -37,12 +38,29 @@ export async function PATCH(
       return NextResponse.json({ error: "Invalid status" }, { status: 400 });
     }
 
-    const order = await prisma.order.update({
-      where: { id },
+    // Role-based transition guard
+    const order = await prisma.order.findUnique({ where: { id } });
+    if (!order) return NextResponse.json({ error: "Order not found" }, { status: 404 });
+
+    if (role === "KITCHEN") {
+      const allowed = ["PREPARING", "READY"];
+      if (!allowed.includes(status)) {
+        return NextResponse.json({ error: "Kitchen can only set PREPARING or READY" }, { status: 403 });
+      }
+    }
+    if (role === "WAITER") {
+      const allowed = ["PREPARING", "DONE", "CANCELLED"];
+      if (!allowed.includes(status)) {
+        return NextResponse.json({ error: "Waiter cannot set this status" }, { status: 403 });
+      }
+    }
+
+    const updated = await prisma.order.update({
+      where: { id, ...(ctx.orgId ? { orgId: ctx.orgId } : {}) },
       data: { status },
       include: { items: true, table: true },
     });
-    return NextResponse.json(order);
+    return NextResponse.json(updated);
   } catch (err) {
     console.error(err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

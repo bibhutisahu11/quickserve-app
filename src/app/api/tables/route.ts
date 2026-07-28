@@ -1,11 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getOrgContext } from "@/lib/orgGuard";
 import { prisma } from "@/lib/prisma";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const { searchParams } = new URL(req.url);
+    const orgSlug = searchParams.get("orgSlug");
+    const orgId = searchParams.get("orgId");
+
+    let resolvedOrgId: string | undefined;
+    if (orgId) {
+      resolvedOrgId = orgId;
+    } else if (orgSlug) {
+      const org = await prisma.organization.findUnique({ where: { slug: orgSlug } });
+      if (!org) return NextResponse.json([], { status: 200 });
+      resolvedOrgId = org.id;
+    }
+
     const tables = await prisma.table.findMany({
+      where: { ...(resolvedOrgId ? { orgId: resolvedOrgId } : {}) },
       orderBy: { name: "asc" },
     });
     return NextResponse.json(tables);
@@ -16,8 +29,10 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const ctx = await getOrgContext(req, {
+    requireRoles: ["SUPER_ADMIN", "HOTEL_ADMIN"],
+  });
+  if (ctx.error) return ctx.error;
 
   try {
     const { name, capacity } = await req.json();
@@ -26,7 +41,7 @@ export async function POST(req: NextRequest) {
     }
 
     const table = await prisma.table.create({
-      data: { name, capacity: capacity ?? 4 },
+      data: { name, capacity: capacity ?? 4, orgId: ctx.orgId },
     });
     return NextResponse.json(table, { status: 201 });
   } catch (err) {

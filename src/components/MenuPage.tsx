@@ -11,9 +11,10 @@ interface MenuPageProps {
   menuItems: MenuItemData[];
   tableToken?: string;
   tableName?: string;
+  orgSlug?: string;
 }
 
-export default function MenuPage({ menuItems, tableToken, tableName }: MenuPageProps) {
+export default function MenuPage({ menuItems, tableToken, tableName, orgSlug }: MenuPageProps) {
   const router = useRouter();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [cartOpen, setCartOpen] = useState(false);
@@ -68,6 +69,7 @@ export default function MenuPage({ menuItems, tableToken, tableName }: MenuPageP
     const body = {
       type: tableToken ? "TABLE" : "PARCEL",
       tableToken: tableToken ?? undefined,
+      orgSlug: orgSlug ?? undefined,
       customerName,
       phone,
       notes,
