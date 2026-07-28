@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { OrderData, OrderStatus } from "@/types";
 import { playNewOrderSound } from "@/lib/notificationSound";
 import { exportOrdersToCsv } from "@/lib/exportCsv";
+import { printOrder, printAllOrders } from "@/lib/printOrder";
 
 const STATUS_LABELS: Record<OrderStatus, string> = {
   PENDING: "New Orders",
@@ -149,6 +150,18 @@ export default function KitchenDashboard() {
             {soundEnabled ? "🔔 Sound On" : "🔕 Sound Off"}
           </button>
           <button
+            onClick={() => {
+              const today = new Date().toISOString().slice(0, 10);
+              const todayOrders = orders.filter(
+                (o) => new Date(o.createdAt).toISOString().slice(0, 10) === today
+              );
+              printAllOrders(todayOrders);
+            }}
+            className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium px-4 py-2 rounded-lg text-sm transition-colors"
+          >
+            🖨️ Print Day
+          </button>
+          <button
             onClick={fetchOrders}
             className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium px-4 py-2 rounded-lg text-sm transition-colors"
           >
@@ -290,7 +303,14 @@ export default function KitchenDashboard() {
 
                 <div className="flex items-center justify-between pt-1 border-t border-current/10">
                   <span className="font-bold text-slate-800">₹{order.total.toFixed(0)}</span>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 items-center">
+                    <button
+                      onClick={() => printOrder(order)}
+                      title="Print receipt"
+                      className="text-slate-400 hover:text-slate-700 transition-colors p-1 text-base"
+                    >
+                      🖨️
+                    </button>
                     {order.status !== "DONE" && order.status !== "CANCELLED" && (
                       <button
                         onClick={() => updateStatus(order.id, "CANCELLED")}

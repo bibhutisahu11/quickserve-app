@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { OrderData, OrderStatus } from "@/types";
+import { printOrder } from "@/lib/printOrder";
 
 const STATUS_COLORS: Record<string, { bg: string; border: string; badge: string }> = {
   PENDING: { bg: "bg-amber-50", border: "border-amber-200", badge: "bg-amber-100 text-amber-700" },
@@ -154,7 +155,14 @@ export default function WaiterDashboard() {
 
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-slate-800">₹{order.total.toFixed(0)}</span>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 items-center">
+                    <button
+                      onClick={() => printOrder(order)}
+                      title="Print receipt"
+                      className="text-slate-400 hover:text-slate-700 transition-colors text-base px-1"
+                    >
+                      🖨️
+                    </button>
                     {order.status === "READY" && (
                       <button
                         onClick={() => updateStatus(order.id, "DONE")}
