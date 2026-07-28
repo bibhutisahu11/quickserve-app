@@ -10,27 +10,71 @@ export async function GET(req: NextRequest) {
   if (ctx.error) return ctx.error;
 
   try {
-    const orgs = await prisma.organization.findMany({
-      orderBy: { createdAt: "desc" },
-      include: {
-        _count: { select: { admins: true, tables: true, menuItems: true, orders: true } },
-      },
-    });
+    const [orgs, revenues, allOrders] = await Promise.all([
+      prisma.organization.findMany({
+        orderBy: { createdAt: "desc" },
+        include: {
+          _count: { select: { admins: true, tables: true, menuItems: true, orders: true } },
+        },
+      }),
+      // Revenue + order count per org
+      prisma.order.groupBy({
+        by: ["orgId"],
+        where: { status: { not: "CANCELLED" } },
+        _sum: { total: true },
+        _count: { id: true },
+      }),
+      // All orders with customer info (for unique customer + top visitor calculation)
+      prisma.order.findMany({
+        where: { status: { not: "CANCELLED" } },
+        select: { orgId: true, customerName: true, phone: true, total: true },
+      }),
+    ]);
 
-    // Total revenue per org
-    const revenues = await prisma.order.groupBy({
-      by: ["orgId"],
-      where: { status: { not: "CANCELLED" } },
-      _sum: { total: true },
-      _count: { id: true },
-    });
-    const revMap = new Map(revenues.map((r) => [r.orgId, { revenue: r._sum.total ?? 0, orders: r._count.id }]));
+    const revMap = new Map(
+      revenues.map((r) => [r.orgId, { revenue: r._sum.total ?? 0, orders: r._count.id }])
+    );
+
+    // Build per-org customer map: key = phone || name
+    type CustomerEntry = { name: string; phone: string; visits: number; spend: number };
+    const orgCustomerMap = new Map<string, Map<string, CustomerEntry>>();
+
+    for (const order of allOrders) {
+      if (!order.orgId) continue;
+      if (!orgCustomerMap.has(order.orgId)) orgCustomerMap.set(order.orgId, new Map());
+      const custMap = orgCustomerMap.get(order.orgId)!;
+      const key = order.phone?.trim() || order.customerName.toLowerCase().trim();
+      const existing = custMap.get(key);
+      if (existing) {
+        existing.visits += 1;
+        existing.spend += order.total;
+        // keep most recent name
+      } else {
+        custMap.set(key, {
+          name: order.customerName,
+          phone: order.phone ?? "",
+          visits: 1,
+          spend: order.total,
+        });
+      }
+    }
 
     return NextResponse.json(
-      orgs.map((org) => ({
-        ...org,
-        stats: revMap.get(org.id) ?? { revenue: 0, orders: 0 },
-      }))
+      orgs.map((org) => {
+        const custMap = orgCustomerMap.get(org.id);
+        const customers = custMap ? Array.from(custMap.values()) : [];
+        const topCustomers = customers
+          .sort((a, b) => b.visits - a.visits || b.spend - a.spend)
+          .slice(0, 5);
+        return {
+          ...org,
+          stats: revMap.get(org.id) ?? { revenue: 0, orders: 0 },
+          customerStats: {
+            uniqueCustomers: customers.length,
+            topCustomers,
+          },
+        };
+      })
     );
   } catch (err) {
     console.error(err);
