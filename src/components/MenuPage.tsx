@@ -64,12 +64,7 @@ export default function MenuPage({ menuItems, tableToken, tableName }: MenuPageP
     if (item) addToCart(item);
   }
 
-  async function handlePlaceOrder(
-    customerName: string,
-    phone: string,
-    notes: string,
-    payment: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }
-  ) {
+  async function handlePlaceOrder(customerName: string, phone: string, notes: string) {
     const body = {
       type: tableToken ? "TABLE" : "PARCEL",
       tableToken: tableToken ?? undefined,
@@ -77,7 +72,6 @@ export default function MenuPage({ menuItems, tableToken, tableName }: MenuPageP
       phone,
       notes,
       items: cart.map((c) => ({ menuItemId: c.menuItemId, quantity: c.quantity })),
-      ...payment,
     };
 
     const res = await fetch("/api/orders", {

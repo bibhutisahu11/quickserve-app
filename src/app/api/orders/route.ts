@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import crypto from "crypto";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -31,18 +30,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const {
-      type,
-      tableToken,
-      customerName,
-      phone,
-      notes,
-      items,
-      // Razorpay payment fields
-      razorpay_order_id,
-      razorpay_payment_id,
-      razorpay_signature,
-    } = body;
+    const { type, tableToken, customerName, phone, notes, items } = body;
 
     if (!type || !customerName || !items?.length) {
       return NextResponse.json(
@@ -51,21 +39,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Verify Razorpay payment signature
-    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
-      return NextResponse.json({ error: "Payment verification required" }, { status: 402 });
-    }
-
-    const expectedSignature = crypto
-      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET!)
-      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
-      .digest("hex");
-
-    if (expectedSignature !== razorpay_signature) {
-      return NextResponse.json({ error: "Invalid payment signature" }, { status: 400 });
-    }
-
-    // Payment verified — resolve table
+    // Resolve table
     let tableId: string | null = null;
     if (type === "TABLE") {
       if (!tableToken) {
@@ -108,7 +82,6 @@ export async function POST(req: NextRequest) {
         phone: phone ?? null,
         notes: notes ?? null,
         total,
-        paymentId: razorpay_payment_id,
         items: { create: orderItemsData },
       },
       include: { items: true, table: true },
