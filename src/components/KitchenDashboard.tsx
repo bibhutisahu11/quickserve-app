@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { OrderData, OrderStatus } from "@/types";
+import { OrderData, OrderStatus, OrgSettings } from "@/types";
 import { playNewOrderSound } from "@/lib/notificationSound";
 import { exportOrdersToCsv } from "@/lib/exportCsv";
 import { printOrder, printAllOrders } from "@/lib/printOrder";
@@ -44,8 +44,16 @@ export default function KitchenDashboard() {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [newOrderFlash, setNewOrderFlash] = useState(false);
   const [exportDate, setExportDate] = useState(new Date().toISOString().slice(0, 10));
+  const [orgSettings, setOrgSettings] = useState<OrgSettings | null>(null);
   const knownOrderIds = useRef<Set<string>>(new Set());
   const isFirstLoad = useRef(true);
+
+  useEffect(() => {
+    fetch("/api/admin/org-settings")
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => data && setOrgSettings(data))
+      .catch(() => {});
+  }, []);
 
   async function fetchOrders() {
     try {
@@ -155,7 +163,7 @@ export default function KitchenDashboard() {
               const todayOrders = orders.filter(
                 (o) => new Date(o.createdAt).toISOString().slice(0, 10) === today
               );
-              printAllOrders(todayOrders);
+              printAllOrders(todayOrders, orgSettings);
             }}
             className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium px-4 py-2 rounded-lg text-sm transition-colors"
           >
@@ -305,7 +313,7 @@ export default function KitchenDashboard() {
                   <span className="font-bold text-slate-800">₹{order.total.toFixed(0)}</span>
                   <div className="flex gap-2 items-center">
                     <button
-                      onClick={() => printOrder(order)}
+                      onClick={() => printOrder(order, orgSettings)}
                       title="Print receipt"
                       className="text-slate-400 hover:text-slate-700 transition-colors p-1 text-base"
                     >

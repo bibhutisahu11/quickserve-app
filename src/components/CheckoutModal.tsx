@@ -7,7 +7,7 @@ interface CheckoutModalProps {
   open: boolean;
   onClose: () => void;
   cart: CartItem[];
-  onPlaceOrder: (name: string, phone: string, notes: string) => Promise<void>;
+  onPlaceOrder: (name: string, phone: string, notes: string, address: string) => Promise<void>;
   isParcel: boolean;
 }
 
@@ -20,6 +20,7 @@ export default function CheckoutModal({
 }: CheckoutModalProps) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [address, setAddress] = useState("");
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -33,7 +34,7 @@ export default function CheckoutModal({
     setError("");
     setLoading(true);
     try {
-      await onPlaceOrder(name, phone, notes);
+      await onPlaceOrder(name, phone, notes, address);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Something went wrong");
       setLoading(false);
@@ -112,9 +113,24 @@ export default function CheckoutModal({
             />
           </div>
 
+          {isParcel && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                Delivery Address <span className="text-slate-400 text-xs">(optional)</span>
+              </label>
+              <textarea
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                rows={2}
+                className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent resize-none"
+                placeholder="House / flat, street, area..."
+              />
+            </div>
+          )}
+
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">
-              Special Instructions (optional)
+              Special Instructions <span className="text-slate-400 text-xs">(optional)</span>
             </label>
             <textarea
               value={notes}

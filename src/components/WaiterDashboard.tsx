@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { OrderData, OrderStatus } from "@/types";
+import { OrderData, OrderStatus, OrgSettings } from "@/types";
 import { printOrder } from "@/lib/printOrder";
 
 const STATUS_COLORS: Record<string, { bg: string; border: string; badge: string }> = {
@@ -25,6 +25,14 @@ export default function WaiterDashboard() {
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [filter, setFilter] = useState<"ACTIVE" | "ALL">("ACTIVE");
+  const [orgSettings, setOrgSettings] = useState<OrgSettings | null>(null);
+
+  useEffect(() => {
+    fetch("/api/admin/org-settings")
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => data && setOrgSettings(data))
+      .catch(() => {});
+  }, []);
 
   async function fetchOrders() {
     const res = await fetch("/api/orders");
@@ -157,7 +165,7 @@ export default function WaiterDashboard() {
                   <span className="font-bold text-slate-800">₹{order.total.toFixed(0)}</span>
                   <div className="flex gap-2 items-center">
                     <button
-                      onClick={() => printOrder(order)}
+                      onClick={() => printOrder(order, orgSettings)}
                       title="Print receipt"
                       className="text-slate-400 hover:text-slate-700 transition-colors text-base px-1"
                     >

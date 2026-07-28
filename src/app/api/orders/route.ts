@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { type, tableToken, orgSlug, customerName, phone, notes, items } = body;
+    const { type, tableToken, orgSlug, customerName, phone, deliveryAddress, notes, items } = body;
 
     if (!type || !customerName || !items?.length) {
       return NextResponse.json(
@@ -95,6 +95,7 @@ export async function POST(req: NextRequest) {
         orgId,
         customerName,
         phone: phone ?? null,
+        deliveryAddress: deliveryAddress ?? null,
         notes: notes ?? null,
         total,
         items: { create: orderItemsData },

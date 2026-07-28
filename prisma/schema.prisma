@@ -15,17 +15,24 @@ enum Role {
 }
 
 model Organization {
-  id        String     @id @default(cuid())
-  name      String
-  slug      String     @unique
-  logoUrl   String?
-  active    Boolean    @default(true)
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-  admins    Admin[]
-  tables    Table[]
-  menuItems MenuItem[]
-  orders    Order[]
+  id          String     @id @default(cuid())
+  name        String
+  slug        String     @unique
+  logoUrl     String?
+  address     String?
+  phone       String?
+  email       String?
+  gstNumber   String?
+  fssaiNumber String?
+  tagline     String?
+  footerText  String?
+  active      Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  admins      Admin[]
+  tables      Table[]
+  menuItems   MenuItem[]
+  orders      Order[]
 
   @@map("organizations")
 }
@@ -80,8 +87,9 @@ model Order {
   tableId      String?
   table        Table?        @relation(fields: [tableId], references: [id])
   customerName String
-  phone        String?
-  notes        String?
+  phone           String?
+  deliveryAddress String?
+  notes           String?
   status       OrderStatus   @default(PENDING)
   total        Float
   paymentId    String?

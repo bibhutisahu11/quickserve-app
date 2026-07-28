@@ -43,6 +43,7 @@ export interface OrderData {
   table: TableData | null;
   customerName: string;
   phone: string | null;
+  deliveryAddress: string | null;
   notes: string | null;
   status: OrderStatus;
   total: number;
@@ -50,6 +51,21 @@ export interface OrderData {
   items: OrderItemData[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface OrgSettings {
+  id: string;
+  name: string;
+  slug: string;
+  logoUrl: string | null;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+  gstNumber: string | null;
+  fssaiNumber: string | null;
+  tagline: string | null;
+  footerText: string | null;
+  active: boolean;
 }
 
 export interface StaffMember {
@@ -68,3 +84,4 @@ export interface OrgData {
   active: boolean;
   createdAt: string;
 }
+
