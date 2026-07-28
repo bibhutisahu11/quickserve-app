@@ -65,7 +65,7 @@ export default function AdminNav() {
           </div>
 
           <button
-            onClick={() => signOut({ callbackUrl: "/admin" })}
+            onClick={async () => { await signOut({ redirect: false }); window.location.href = "/admin"; }}
             className="flex-shrink-0 text-slate-400 hover:text-white text-sm font-medium transition-colors px-3 py-1.5 rounded-lg hover:bg-slate-700"
           >
             Sign out
