@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { StaffMember, UserRole } from "@/types";
+import { validateEmail } from "@/lib/validators";
 
 const ROLE_LABELS: Record<UserRole, string> = {
   SUPER_ADMIN: "Super Admin",
@@ -36,6 +37,7 @@ export default function StaffManager() {
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [emailError, setEmailError] = useState("");
 
   async function fetchStaff() {
     const res = await fetch("/api/admin/staff");
@@ -48,6 +50,8 @@ export default function StaffManager() {
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    const eErr = validateEmail(form.email);
+    if (eErr) { setEmailError(eErr); return; }
     setSaving(true);
     try {
       const res = await fetch("/api/admin/staff", {
@@ -186,11 +190,13 @@ export default function StaffManager() {
                 <input
                   type="email"
                   value={form.email}
-                  onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                  onChange={(e) => { setForm((f) => ({ ...f, email: e.target.value })); setEmailError(""); }}
+                  onBlur={() => setEmailError(validateEmail(form.email) ?? "")}
                   required
                   placeholder="staff@hotel.com"
-                  className="w-full border border-slate-300 rounded-lg px-3 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  className={`w-full border rounded-lg px-3 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500 ${emailError ? "border-red-400 bg-red-50" : "border-slate-300"}`}
                 />
+                {emailError && <p className="text-red-500 text-xs mt-1">{emailError}</p>}
               </div>
 
               <div>

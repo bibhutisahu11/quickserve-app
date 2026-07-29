@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { OrgSettings } from "@/types";
+import { validatePhone, validateEmail } from "@/lib/validators";
 
 interface Field {
   key: keyof OrgSettings;
@@ -30,6 +31,7 @@ export default function OrgSettings() {
   const [saving, setSaving]   = useState(false);
   const [saved, setSaved]     = useState(false);
   const [error, setError]     = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<keyof OrgSettings, string>>>({});
 
   useEffect(() => {
     fetch("/api/admin/org-settings")
@@ -42,10 +44,24 @@ export default function OrgSettings() {
   function set(key: keyof OrgSettings, value: string) {
     setForm((prev) => ({ ...prev, [key]: value || null }));
     setSaved(false);
+    setFieldErrors((prev) => ({ ...prev, [key]: undefined }));
+  }
+
+  function validateField(key: keyof OrgSettings, value: string) {
+    if (key === "phone") return validatePhone(value) ?? "";
+    if (key === "email") return validateEmail(value) ?? "";
+    return "";
   }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
+    // Validate phone + email before saving
+    const errs: Partial<Record<keyof OrgSettings, string>> = {};
+    if (form.phone) errs.phone = validatePhone(form.phone as string) ?? "";
+    if (form.email) errs.email = validateEmail(form.email as string) ?? "";
+    const hasErrors = Object.values(errs).some(Boolean);
+    setFieldErrors(errs);
+    if (hasErrors) return;
     setSaving(true);
     setError("");
     try {
@@ -131,11 +147,16 @@ export default function OrgSettings() {
                 type={f.type ?? "text"}
                 value={(form[f.key] as string) ?? ""}
                 onChange={(e) => set(f.key, e.target.value)}
+                onBlur={(e) => {
+                  const err = validateField(f.key, e.target.value);
+                  setFieldErrors((prev) => ({ ...prev, [f.key]: err || undefined }));
+                }}
                 required={f.required}
                 placeholder={f.placeholder}
-                className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm"
+                className={`w-full border rounded-lg px-4 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm ${fieldErrors[f.key] ? "border-red-400 bg-red-50" : "border-slate-300"}`}
               />
             )}
+            {fieldErrors[f.key] && <p className="text-red-500 text-xs mt-1">{fieldErrors[f.key]}</p>}
             {f.hint && <p className="text-xs text-slate-400 mt-1">{f.hint}</p>}
           </div>
         ))}

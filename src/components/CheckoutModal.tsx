@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { CartItem } from "@/types";
+import { validatePhone } from "@/lib/validators";
 
 interface CheckoutModalProps {
   open: boolean;
@@ -24,6 +25,7 @@ export default function CheckoutModal({
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [phoneError, setPhoneError] = useState("");
 
   const total = cart.reduce((s, i) => s + i.price * i.quantity, 0);
 
@@ -32,6 +34,8 @@ export default function CheckoutModal({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    const pErr = phone ? validatePhone(phone) : null;
+    if (pErr) { setPhoneError(pErr); return; }
     setLoading(true);
     try {
       await onPlaceOrder(name, phone, notes, address);
@@ -106,11 +110,13 @@ export default function CheckoutModal({
             <input
               type="tel"
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              onChange={(e) => { setPhone(e.target.value); setPhoneError(""); }}
+              onBlur={() => setPhoneError(validatePhone(phone) ?? "")}
               required={isParcel}
-              className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+              className={`w-full border rounded-lg px-4 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent ${phoneError ? "border-red-400 bg-red-50" : "border-slate-300"}`}
               placeholder="+91 98765 43210"
             />
+            {phoneError && <p className="text-red-500 text-xs mt-1">{phoneError}</p>}
           </div>
 
           {isParcel && (

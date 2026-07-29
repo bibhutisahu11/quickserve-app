@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { validateEmail } from "@/lib/validators";
 
 export default function CreateOrgForm() {
   const router = useRouter();
@@ -15,6 +16,7 @@ export default function CreateOrgForm() {
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [emailError, setEmailError] = useState("");
 
   function autoSlug(name: string) {
     return name
@@ -37,6 +39,8 @@ export default function CreateOrgForm() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    const eErr = validateEmail(form.adminEmail);
+    if (eErr) { setEmailError(eErr); return; }
     setSaving(true);
     try {
       const res = await fetch("/api/superadmin/orgs", {
@@ -140,11 +144,13 @@ export default function CreateOrgForm() {
           <input
             type="email"
             value={form.adminEmail}
-            onChange={(e) => setForm((f) => ({ ...f, adminEmail: e.target.value }))}
+            onChange={(e) => { setForm((f) => ({ ...f, adminEmail: e.target.value })); setEmailError(""); }}
+            onBlur={() => setEmailError(validateEmail(form.adminEmail) ?? "")}
             required
             placeholder="admin@grandpalace.com"
-            className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+            className={`w-full bg-slate-700 border rounded-lg px-3 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 ${emailError ? "border-red-500" : "border-slate-600"}`}
           />
+          {emailError && <p className="text-red-400 text-xs mt-1">{emailError}</p>}
         </div>
 
         <div>
