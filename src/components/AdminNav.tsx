@@ -41,7 +41,7 @@ export default function AdminNav({ orgName }: { orgName: string | null }) {
             <span className="text-xl font-black text-amber-400 tracking-tight">QS</span>
             <div>
               <div className="font-bold text-base text-amber-400 leading-tight">
-                {orgName ?? session?.user?.name ?? "Admin"}
+                {orgName ?? session?.user?.orgName ?? session?.user?.name ?? "Admin"}
               </div>
               <div className="text-slate-500 text-xs">
                 {session?.user?.name && orgName ? `${session.user.name} · ` : ""}{ROLE_LABELS[role] ?? role}
