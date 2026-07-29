@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
-import { useEffect, useState } from "react";
 
 const ALL_LINKS = [
   { href: "/admin/dashboard", label: "Dashboard", icon: "📋", roles: ["HOTEL_ADMIN", "MANAGER"] },
@@ -27,30 +26,10 @@ const ROLE_LABELS: Record<string, string> = {
   SUPER_ADMIN: "Super Admin",
 };
 
-export default function AdminNav() {
+export default function AdminNav({ orgName }: { orgName: string | null }) {
   const pathname = usePathname();
   const { data: session } = useSession();
   const role = session?.user?.role ?? "HOTEL_ADMIN";
-  const [orgName, setOrgName] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!session?.user) return;
-    // Use orgName from session if available
-    if (session.user.orgName) { setOrgName(session.user.orgName); return; }
-    // Fall back to formatting orgSlug (always present in JWT)
-    if (session.user.orgSlug) {
-      const fromSlug = session.user.orgSlug
-        .replace(/-/g, " ")
-        .replace(/\b\w/g, (c) => c.toUpperCase());
-      setOrgName(fromSlug);
-      return;
-    }
-    // Last resort: fetch from API
-    fetch("/api/admin/org-settings")
-      .then((r) => r.ok ? r.json() : null)
-      .then((d) => { if (d?.name) setOrgName(d.name); })
-      .catch(() => {});
-  }, [session?.user?.email]);
 
   const visibleLinks = ALL_LINKS.filter((l) => l.roles.includes(role));
 
@@ -61,19 +40,12 @@ export default function AdminNav() {
           <div className="flex items-center gap-2">
             <span className="text-xl font-black text-amber-400 tracking-tight">QS</span>
             <div>
-              <div className="flex items-center gap-1.5">
-                <span className="font-bold text-base text-amber-400 leading-tight">
-                  {session?.user?.name ?? "Admin"}
-                </span>
-                {orgName && (
-                  <span className="text-xs bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded font-medium leading-tight">
-                    {orgName}
-                  </span>
-                )}
+              <div className="font-bold text-base text-amber-400 leading-tight">
+                {orgName ?? session?.user?.name ?? "Admin"}
               </div>
-              <span className="text-slate-500 text-xs">
-                {ROLE_LABELS[role] ?? role}
-              </span>
+              <div className="text-slate-500 text-xs">
+                {session?.user?.name && orgName ? `${session.user.name} · ` : ""}{ROLE_LABELS[role] ?? role}
+              </div>
             </div>
           </div>
 
