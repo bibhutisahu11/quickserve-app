@@ -38,7 +38,7 @@ export default function AdminNav() {
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center gap-2">
-            <span className="text-2xl">🍽️</span>
+            <span className="text-xl font-black text-amber-400 tracking-tight">QS</span>
             <div>
               <span className="font-bold text-lg text-amber-400">
                 {session?.user?.name ?? "Admin"}

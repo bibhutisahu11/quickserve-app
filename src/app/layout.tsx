@@ -9,8 +9,8 @@ const geistSans = Geist({
 });
 
 export const metadata: Metadata = {
-  title: "Hotel QR Order System",
-  description: "Scan QR code to order food at your table or place a parcel order",
+  title: "QuickServe",
+  description: "QuickServe — Smart restaurant & hotel management. QR ordering, kitchen dashboard, inventory, expenses and more.",
 };
 
 export default function RootLayout({
