@@ -1,4 +1,7 @@
-CREATE TYPE IF NOT EXISTS "StockLogType" AS ENUM ('IN', 'OUT', 'ADJUSTMENT');
+DO $$ BEGIN
+  CREATE TYPE "StockLogType" AS ENUM ('IN', 'OUT', 'ADJUSTMENT');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 CREATE TABLE IF NOT EXISTS "inventory_items" (
   "id"        TEXT NOT NULL PRIMARY KEY,
