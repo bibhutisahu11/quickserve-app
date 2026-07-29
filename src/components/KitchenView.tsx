@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { OrderData, OrderStatus } from "@/types";
+import { MenuItemData, OrderData, OrderStatus } from "@/types";
 import { playNewOrderSound } from "@/lib/notificationSound";
+import { estimateWaitMins, formatWait, getOrderUrgency, overdueByMins } from "@/lib/waitingTime";
 
 const STATUS_COLORS: Record<string, { bg: string; border: string; badge: string }> = {
   PENDING: { bg: "bg-amber-50", border: "border-amber-200", badge: "bg-amber-100 text-amber-700" },
@@ -18,6 +19,8 @@ export default function KitchenView() {
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [newOrderFlash, setNewOrderFlash] = useState(false);
+  const [categoryMap, setCategoryMap] = useState<Record<string, string>>({});
+  const [tick, setTick] = useState(0);
   const knownOrderIds = useRef<Set<string>>(new Set());
   const isFirstLoad = useRef(true);
 
@@ -50,6 +53,19 @@ export default function KitchenView() {
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    fetch("/api/menu")
+      .then((r) => r.ok ? r.json() : [])
+      .then((items: MenuItemData[]) => {
+        const map: Record<string, string> = {};
+        items.forEach((m) => { map[m.id] = m.category; });
+        setCategoryMap(map);
+      })
+      .catch(() => {});
+    const tickInterval = setInterval(() => setTick((n) => n + 1), 30_000);
+    return () => clearInterval(tickInterval);
+  }, []);
 
   useEffect(() => {
     fetchOrders();
@@ -122,6 +138,80 @@ export default function KitchenView() {
           </button>
         </div>
       </div>
+
+      {/* ── Attention alerts ────────────────────────────────────────────────── */}
+      {(() => {
+        const overdue = orders.filter((o) => getOrderUrgency(o, orders, categoryMap) === "overdue");
+        const near    = orders.filter((o) => getOrderUrgency(o, orders, categoryMap) === "near");
+        if (overdue.length === 0 && near.length === 0) return null;
+        void tick; // trigger re-render every 30 s
+        return (
+          <div className="mb-6 space-y-3">
+            {overdue.length > 0 && (
+              <div className="bg-red-50 border border-red-300 rounded-xl p-4">
+                <h2 className="text-red-700 font-bold text-sm mb-3 flex items-center gap-2">
+                  🚨 Overdue — Action Required
+                  <span className="bg-red-600 text-white text-xs rounded-full px-2 py-0.5">{overdue.length}</span>
+                </h2>
+                <div className="flex flex-col gap-2">
+                  {overdue.map((o) => {
+                    const late = overdueByMins(o, orders, categoryMap);
+                    return (
+                      <div key={o.id} className="bg-white border border-red-200 rounded-lg px-4 py-3 flex items-center justify-between">
+                        <div>
+                          <span className="font-bold text-slate-800 text-sm">#{o.id.slice(-6).toUpperCase()}</span>
+                          <span className="text-slate-500 text-xs ml-2">{o.customerName}</span>
+                          <span className="text-slate-400 text-xs ml-2">{o.type === "TABLE" ? `🍽️ ${o.table?.name ?? "Table"}` : "📦 Parcel"}</span>
+                          <div className="text-xs text-slate-500 mt-0.5">{o.items.map((i) => `${i.name} ×${i.quantity}`).join(", ")}</div>
+                        </div>
+                        <div className="text-right shrink-0 ml-4">
+                          <p className="text-red-600 font-extrabold text-sm">{late > 0 ? `+${late}m late` : "Due now"}</p>
+                          <button onClick={() => updateStatus(o.id, o.status === "PENDING" ? "PREPARING" : "READY")}
+                            disabled={updatingId === o.id}
+                            className="mt-1 bg-red-600 hover:bg-red-700 disabled:bg-red-300 text-white text-xs font-bold px-3 py-1 rounded-lg">
+                            {updatingId === o.id ? "…" : o.status === "PENDING" ? "Start Cooking" : "Mark Ready"}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            {near.length > 0 && (
+              <div className="bg-amber-50 border border-amber-300 rounded-xl p-4">
+                <h2 className="text-amber-700 font-bold text-sm mb-3 flex items-center gap-2">
+                  ⚠️ Almost Due — Speed Up
+                  <span className="bg-amber-500 text-white text-xs rounded-full px-2 py-0.5">{near.length}</span>
+                </h2>
+                <div className="flex flex-col gap-2">
+                  {near.map((o) => {
+                    const rem = estimateWaitMins(o, orders, categoryMap);
+                    return (
+                      <div key={o.id} className="bg-white border border-amber-200 rounded-lg px-4 py-3 flex items-center justify-between">
+                        <div>
+                          <span className="font-bold text-slate-800 text-sm">#{o.id.slice(-6).toUpperCase()}</span>
+                          <span className="text-slate-500 text-xs ml-2">{o.customerName}</span>
+                          <span className="text-slate-400 text-xs ml-2">{o.type === "TABLE" ? `🍽️ ${o.table?.name ?? "Table"}` : "📦 Parcel"}</span>
+                          <div className="text-xs text-slate-500 mt-0.5">{o.items.map((i) => `${i.name} ×${i.quantity}`).join(", ")}</div>
+                        </div>
+                        <div className="text-right shrink-0 ml-4">
+                          <p className="text-amber-600 font-bold text-sm">⏱ {formatWait(rem)}</p>
+                          <button onClick={() => updateStatus(o.id, o.status === "PENDING" ? "PREPARING" : "READY")}
+                            disabled={updatingId === o.id}
+                            className="mt-1 bg-amber-500 hover:bg-amber-600 disabled:bg-amber-300 text-white text-xs font-bold px-3 py-1 rounded-lg">
+                            {updatingId === o.id ? "…" : o.status === "PENDING" ? "Start Cooking" : "Mark Ready"}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       <div className="grid lg:grid-cols-2 gap-6">
         {/* New Orders */}
