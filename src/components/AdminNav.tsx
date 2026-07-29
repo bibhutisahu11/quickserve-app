@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
+import { useEffect, useState } from "react";
 
 const ALL_LINKS = [
   { href: "/admin/dashboard", label: "Dashboard", icon: "📋", roles: ["HOTEL_ADMIN", "MANAGER"] },
@@ -30,6 +31,17 @@ export default function AdminNav() {
   const pathname = usePathname();
   const { data: session } = useSession();
   const role = session?.user?.role ?? "HOTEL_ADMIN";
+  const [orgName, setOrgName] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!session?.user) return;
+    const cached = session.user.orgName;
+    if (cached) { setOrgName(cached); return; }
+    fetch("/api/admin/org-settings")
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (d?.name) setOrgName(d.name); })
+      .catch(() => {});
+  }, [session?.user?.email]);
 
   const visibleLinks = ALL_LINKS.filter((l) => l.roles.includes(role));
 
@@ -44,9 +56,9 @@ export default function AdminNav() {
                 <span className="font-bold text-base text-amber-400 leading-tight">
                   {session?.user?.name ?? "Admin"}
                 </span>
-                {session?.user?.orgName && (
+                {orgName && (
                   <span className="text-xs bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded font-medium leading-tight">
-                    {session.user.orgName}
+                    {orgName}
                   </span>
                 )}
               </div>
