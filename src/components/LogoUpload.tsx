@@ -8,7 +8,7 @@ interface Props {
   dark?: boolean;
 }
 
-const MAX_BYTES = 300 * 1024; // 300 KB limit for base64 in DB
+const MAX_BYTES = 2 * 1024 * 1024; // 2 MB
 
 export default function LogoUpload({ currentUrl, onChange, dark = false }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -23,7 +23,7 @@ export default function LogoUpload({ currentUrl, onChange, dark = false }: Props
       return;
     }
     if (file.size > MAX_BYTES) {
-      setError(`File must be under 300 KB. Current: ${(file.size / 1024).toFixed(0)} KB`);
+      setError(`File must be under 2 MB. Current: ${(file.size / 1024).toFixed(0)} KB`);
       return;
     }
 
