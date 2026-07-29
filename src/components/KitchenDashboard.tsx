@@ -49,6 +49,7 @@ export default function KitchenDashboard() {
   const [categoryMap, setCategoryMap] = useState<Record<string, string>>({});
   const [tick, setTick] = useState(0);
   const [todayBirthdays, setTodayBirthdays] = useState<{ name: string; phone: string }[]>([]);
+  const [lowStock, setLowStock] = useState<{ name: string; quantity: number; unit: string; status: "out" | "low" }[]>([]);
   const knownOrderIds = useRef<Set<string>>(new Set());
   const isFirstLoad = useRef(true);
 
@@ -78,6 +79,19 @@ export default function KitchenDashboard() {
           return b.getMonth() === todayMM && b.getDate() === todayDD;
         }).map((c) => ({ name: c.name, phone: c.phone }));
         setTodayBirthdays(bdays);
+      })
+      .catch(() => {});
+    // Fetch inventory for low-stock alerts
+    fetch("/api/admin/inventory")
+      .then((r) => r.ok ? r.json() : [])
+      .then((inv: { name: string; quantity: number; unit: string; minStock: number }[]) => {
+        const alerts = inv
+          .filter((i) => i.quantity <= 0 || (i.minStock > 0 && i.quantity <= i.minStock))
+          .map((i) => ({
+            name: i.name, quantity: i.quantity, unit: i.unit,
+            status: (i.quantity <= 0 ? "out" : "low") as "out" | "low",
+          }));
+        setLowStock(alerts);
       })
       .catch(() => {});
     const t = setInterval(() => setTick((n) => n + 1), 30_000);
@@ -277,6 +291,24 @@ export default function KitchenDashboard() {
           </button>
         ))}
       </div>
+
+      {/* ── Low stock alert ──────────────────────────────────────────────── */}
+      {lowStock.length > 0 && (
+        <div className={`mb-4 rounded-xl px-5 py-3 flex items-center gap-3 flex-wrap ${lowStock.some((i) => i.status === "out") ? "bg-red-50 border border-red-200" : "bg-amber-50 border border-amber-200"}`}>
+          <span className="text-xl">{lowStock.some((i) => i.status === "out") ? "🚨" : "⚠️"}</span>
+          <div className="flex-1">
+            <p className={`font-bold text-sm ${lowStock.some((i) => i.status === "out") ? "text-red-700" : "text-amber-700"}`}>
+              Inventory Alert
+            </p>
+            <p className="text-xs text-slate-600 mt-0.5">
+              {lowStock.map((i) => `${i.name} (${i.quantity <= 0 ? "OUT" : `${i.quantity} ${i.unit}`})`).join(" · ")}
+            </p>
+          </div>
+          <a href="/admin/inventory" className={`text-xs font-bold px-4 py-1.5 rounded-lg text-white transition-colors ${lowStock.some((i) => i.status === "out") ? "bg-red-600 hover:bg-red-700" : "bg-amber-500 hover:bg-amber-600"}`}>
+            Manage →
+          </a>
+        </div>
+      )}
 
       {/* ── Today's birthdays banner ──────────────────────────────────────── */}
       {todayBirthdays.length > 0 && (
