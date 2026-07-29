@@ -15,9 +15,9 @@ export default async function ParcelMenuPage({ params }: Props) {
   if (!org || !org.active) notFound();
 
   const menuItems = await prisma.menuItem.findMany({
-    where: { available: true, orgId: org.id },
+    where: { orgId: org.id },
     orderBy: [{ category: "asc" }, { sortOrder: "asc" }],
   });
 
-  return <MenuPage menuItems={menuItems} orgSlug={orgSlug} />;
+  return <MenuPage menuItems={menuItems} orgSlug={orgSlug} orgName={org.name} />;
 }

@@ -24,6 +24,9 @@ export default function MenuManager() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [scannerOpen, setScannerOpen] = useState(false);
+  const [tab, setTab] = useState<"manage" | "availability">("manage");
+  const [pendingAvail, setPendingAvail] = useState<Record<string, boolean>>({});
+  const [savingAvail, setSavingAvail] = useState(false);
 
   async function fetchItems() {
     const res = await fetch("/api/menu");
@@ -134,12 +137,64 @@ export default function MenuManager() {
   const uncategorized = filtered.filter((i) => !categories.includes(i.category));
   if (uncategorized.length) grouped["Other"] = uncategorized;
 
+  // -- Availability tab helpers --
+  function getAvail(item: MenuItemData) {
+    return pendingAvail[item.id] !== undefined ? pendingAvail[item.id] : item.available;
+  }
+
+  function togglePending(id: string, val: boolean) {
+    setPendingAvail((prev) => ({ ...prev, [id]: val }));
+  }
+
+  function setCategoryAvail(cat: string, val: boolean) {
+    const ids = items.filter((i) => i.category === cat).map((i) => i.id);
+    setPendingAvail((prev) => {
+      const next = { ...prev };
+      ids.forEach((id) => { next[id] = val; });
+      return next;
+    });
+  }
+
+  function setAllAvail(val: boolean) {
+    const next: Record<string, boolean> = {};
+    items.forEach((i) => { next[i.id] = val; });
+    setPendingAvail(next);
+  }
+
+  async function saveAvailability() {
+    const updates = Object.entries(pendingAvail).map(([id, available]) => ({ id, available }));
+    if (updates.length === 0) return;
+    setSavingAvail(true);
+    try {
+      await fetch("/api/menu", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ updates }),
+      });
+      // Apply changes locally
+      setItems((prev) =>
+        prev.map((i) => pendingAvail[i.id] !== undefined ? { ...i, available: pendingAvail[i.id] } : i)
+      );
+      setPendingAvail({});
+    } finally {
+      setSavingAvail(false);
+    }
+  }
+
+  const availChanged = Object.keys(pendingAvail).length > 0;
+  const availByCategory = categories.reduce((acc, cat) => {
+    acc[cat] = items.filter((i) => i.category === cat);
+    return acc;
+  }, {} as Record<string, MenuItemData[]>);
+
   return (
     <div className="max-w-5xl mx-auto px-4 py-6">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Menu Management</h1>
-          <p className="text-slate-500 text-sm">{items.length} items total</p>
+          <p className="text-slate-500 text-sm">
+            {items.filter((i) => i.available).length} available · {items.filter((i) => !i.available).length} unavailable
+          </p>
         </div>
         <div className="flex gap-2">
           <button
@@ -157,6 +212,85 @@ export default function MenuManager() {
         </div>
       </div>
 
+      {/* Tabs */}
+      <div className="flex gap-1 bg-slate-100 p-1 rounded-xl mb-5 w-fit">
+        {(["manage", "availability"] as const).map((t) => (
+          <button key={t} onClick={() => setTab(t)}
+            className={`px-5 py-2 rounded-lg text-sm font-semibold transition-colors ${tab === t ? "bg-white shadow text-slate-800" : "text-slate-500 hover:text-slate-700"}`}>
+            {t === "manage" ? "🍴 Manage Items" : "🔄 Quick Availability"}
+          </button>
+        ))}
+      </div>
+
+      {tab === "availability" && (
+        <div className="space-y-4">
+          {/* Toolbar */}
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="flex gap-2">
+              <button onClick={() => setAllAvail(true)} className="bg-green-100 hover:bg-green-200 text-green-700 font-semibold px-4 py-2 rounded-xl text-sm transition-colors">
+                ✅ All Available
+              </button>
+              <button onClick={() => setAllAvail(false)} className="bg-red-100 hover:bg-red-200 text-red-700 font-semibold px-4 py-2 rounded-xl text-sm transition-colors">
+                ❌ All Unavailable
+              </button>
+            </div>
+            <button onClick={saveAvailability} disabled={!availChanged || savingAvail}
+              className="bg-amber-500 hover:bg-amber-600 disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold px-6 py-2 rounded-xl text-sm transition-colors">
+              {savingAvail ? "Saving…" : `Save Changes${availChanged ? ` (${Object.keys(pendingAvail).length})` : ""}`}
+            </button>
+          </div>
+
+          {availChanged && (
+            <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-xl px-4 py-3 text-sm flex items-center gap-2">
+              <span>⚠️</span> You have {Object.keys(pendingAvail).length} unsaved change{Object.keys(pendingAvail).length !== 1 ? "s" : ""}. Click <strong>Save Changes</strong> to apply.
+            </div>
+          )}
+
+          {Object.entries(availByCategory).map(([cat, catItems]) => (
+            <div key={cat} className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+              <div className="bg-slate-50 border-b border-slate-100 px-5 py-3 flex items-center justify-between">
+                <h3 className="font-bold text-slate-700">{cat} <span className="text-slate-400 text-sm font-normal">({catItems.length})</span></h3>
+                <div className="flex gap-2">
+                  <button onClick={() => setCategoryAvail(cat, true)} className="text-xs bg-green-100 hover:bg-green-200 text-green-700 font-semibold px-3 py-1 rounded-lg">
+                    All On
+                  </button>
+                  <button onClick={() => setCategoryAvail(cat, false)} className="text-xs bg-red-100 hover:bg-red-200 text-red-700 font-semibold px-3 py-1 rounded-lg">
+                    All Off
+                  </button>
+                </div>
+              </div>
+              <div className="divide-y divide-slate-50">
+                {catItems.map((item) => {
+                  const avail = getAvail(item);
+                  const changed = pendingAvail[item.id] !== undefined && pendingAvail[item.id] !== item.available;
+                  return (
+                    <div key={item.id} className={`flex items-center gap-4 px-5 py-3.5 transition-colors ${changed ? "bg-amber-50/60" : ""}`}>
+                      <div className="flex-1 min-w-0">
+                        <p className={`font-semibold text-sm ${avail ? "text-slate-800" : "text-slate-400"}`}>{item.name}</p>
+                        <p className="text-xs text-slate-400">₹{item.price.toFixed(0)}</p>
+                      </div>
+                      {changed && <span className="text-xs text-amber-600 font-medium">unsaved</span>}
+                      {/* Toggle switch */}
+                      <button
+                        onClick={() => togglePending(item.id, !avail)}
+                        className={`relative w-12 h-6 rounded-full transition-colors ${avail ? "bg-green-500" : "bg-slate-200"}`}
+                        title={avail ? "Click to mark unavailable" : "Click to mark available"}
+                      >
+                        <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all ${avail ? "left-7" : "left-1"}`} />
+                      </button>
+                      <span className={`text-xs font-semibold w-20 text-right ${avail ? "text-green-600" : "text-red-500"}`}>
+                        {avail ? "Available" : "Unavailable"}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {tab === "manage" && <>
       <input
         type="text"
         value={search}
@@ -244,6 +378,8 @@ export default function MenuManager() {
           ))}
         </div>
       )}
+
+      </>}
 
       {/* Scanner modal */}
       {scannerOpen && (

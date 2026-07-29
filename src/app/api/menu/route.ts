@@ -29,6 +29,34 @@ export async function GET(req: NextRequest) {
   }
 }
 
+// PATCH /api/menu  { updates: [{id, available}] }  – bulk availability toggle
+export async function PATCH(req: NextRequest) {
+  const ctx = await getOrgContext(req, {
+    requireRoles: ["SUPER_ADMIN", "HOTEL_ADMIN", "MANAGER"],
+  });
+  if (ctx.error) return ctx.error;
+
+  try {
+    const { updates } = await req.json() as { updates: { id: string; available: boolean }[] };
+    if (!Array.isArray(updates) || updates.length === 0) {
+      return NextResponse.json({ error: "updates array required" }, { status: 400 });
+    }
+
+    await prisma.$transaction(
+      updates.map(({ id, available }) =>
+        prisma.menuItem.update({
+          where: { id, ...(ctx.orgId ? { orgId: ctx.orgId } : {}) },
+          data: { available },
+        })
+      )
+    );
+    return NextResponse.json({ ok: true, count: updates.length });
+  } catch (err) {
+    console.error(err);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
+
 export async function POST(req: NextRequest) {
   const ctx = await getOrgContext(req, {
     requireRoles: ["SUPER_ADMIN", "HOTEL_ADMIN", "MANAGER"],

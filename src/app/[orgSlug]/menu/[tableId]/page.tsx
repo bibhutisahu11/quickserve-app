@@ -19,7 +19,7 @@ export default async function TableMenuPage({ params }: Props) {
       where: { qrToken: tableId, orgId: org.id },
     }),
     prisma.menuItem.findMany({
-      where: { available: true, orgId: org.id },
+      where: { orgId: org.id },
       orderBy: [{ category: "asc" }, { sortOrder: "asc" }],
     }),
   ]);
@@ -32,6 +32,7 @@ export default async function TableMenuPage({ params }: Props) {
       tableToken={table.qrToken}
       tableName={table.name}
       orgSlug={orgSlug}
+      orgName={org.name}
     />
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { MenuItemData, CartItem } from "@/types";
 import MenuCard from "./MenuCard";
@@ -12,27 +12,65 @@ interface MenuPageProps {
   tableToken?: string;
   tableName?: string;
   orgSlug?: string;
+  orgName?: string;
 }
 
-export default function MenuPage({ menuItems, tableToken, tableName, orgSlug }: MenuPageProps) {
+// Map hour ranges to suggested category keywords and greeting info
+function getTimeContext() {
+  const h = new Date().getHours();
+  if (h >= 5  && h < 12) return { greeting: "Good Morning",  emoji: "☀️",  keywords: ["breakfast", "morning", "snacks", "beverages", "tea", "coffee"] };
+  if (h >= 12 && h < 16) return { greeting: "Good Afternoon", emoji: "🌤️", keywords: ["lunch", "main course", "rice", "meals", "thali"] };
+  if (h >= 16 && h < 20) return { greeting: "Good Evening",  emoji: "🌇", keywords: ["snacks", "evening", "beverages", "starters", "chai"] };
+  return                         { greeting: "Good Evening",  emoji: "🌙", keywords: ["dinner", "main course", "biryani", "rice", "starters"] };
+}
+
+function suggestedCategory(categories: string[], keywords: string[]): string | null {
+  for (const kw of keywords) {
+    const match = categories.find((c) => c.toLowerCase().includes(kw));
+    if (match) return match;
+  }
+  return null;
+}
+
+export default function MenuPage({ menuItems, tableToken, tableName, orgSlug, orgName }: MenuPageProps) {
   const router = useRouter();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [cartOpen, setCartOpen] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
-  const [activeCategory, setActiveCategory] = useState<string>("All");
+  const [showGreeting, setShowGreeting] = useState(true);
+
+  const timeCtx = useMemo(() => getTimeContext(), []);
 
   const categories = useMemo(() => {
     const cats = Array.from(new Set(menuItems.map((i) => i.category))).sort();
-    return ["All", ...cats];
+    return cats;
   }, [menuItems]);
 
-  const filtered = useMemo(
-    () =>
+  // Pick a suggested category based on time-of-day
+  const defaultCategory = useMemo(() => {
+    const suggested = suggestedCategory(categories, timeCtx.keywords);
+    return suggested ?? "All";
+  }, [categories, timeCtx]);
+
+  const [activeCategory, setActiveCategory] = useState<string>("All");
+
+  // Apply time-based default once categories are known
+  useEffect(() => {
+    if (defaultCategory !== "All") setActiveCategory(defaultCategory);
+  }, [defaultCategory]);
+
+  const allCategories = useMemo(() => ["All", ...categories], [categories]);
+
+  // Show available items first, unavailable at bottom with a "Sold Out" indicator
+  const filtered = useMemo(() => {
+    const pool =
       activeCategory === "All"
-        ? menuItems.filter((i) => i.available)
-        : menuItems.filter((i) => i.category === activeCategory && i.available),
-    [menuItems, activeCategory]
-  );
+        ? menuItems
+        : menuItems.filter((i) => i.category === activeCategory);
+    const avail   = pool.filter((i) =>  i.available);
+    const unavail = pool.filter((i) => !i.available);
+    return [...avail, ...unavail];
+  }, [menuItems, activeCategory]);
 
   const cartCount = cart.reduce((s, i) => s + i.quantity, 0);
   const cartTotal = cart.reduce((s, i) => s + i.price * i.quantity, 0);
@@ -119,41 +157,90 @@ export default function MenuPage({ menuItems, tableToken, tableName, orgSlug }: 
 
         {/* Category tabs */}
         <div className="max-w-2xl mx-auto px-4 pb-3 flex gap-2 overflow-x-auto scrollbar-hide">
-          {categories.map((cat) => (
+          {allCategories.map((cat) => (
             <button
               key={cat}
               onClick={() => setActiveCategory(cat)}
-              className={`flex-shrink-0 px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+              className={`flex-shrink-0 px-3 py-1.5 rounded-full text-sm font-medium transition-colors whitespace-nowrap ${
                 activeCategory === cat
-                  ? "bg-white text-amber-600 shadow"
+                  ? "bg-white text-amber-600 shadow font-bold"
                   : "bg-amber-400/40 text-white"
               }`}
             >
               {cat}
+              {cat === defaultCategory && cat !== "All" && (
+                <span className="ml-1 text-xs opacity-75">✦</span>
+              )}
             </button>
           ))}
         </div>
       </div>
 
+      {/* Time-of-day greeting banner */}
+      {showGreeting && (
+        <div className="max-w-2xl mx-auto px-4 pt-4">
+          <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl px-5 py-4 flex items-center justify-between shadow-sm">
+            <div className="flex items-center gap-3">
+              <span className="text-3xl">{timeCtx.emoji}</span>
+              <div>
+                <p className="font-bold text-slate-800">{timeCtx.greeting}! 👋</p>
+                <p className="text-sm text-slate-500">
+                  {orgName ? `Welcome to ${orgName}` : "Welcome!"}
+                  {defaultCategory !== "All" && <> · We suggest <span className="font-semibold text-amber-600">{defaultCategory}</span> right now</>}
+                </p>
+              </div>
+            </div>
+            <button onClick={() => setShowGreeting(false)} className="text-slate-300 hover:text-slate-500 text-xl leading-none flex-shrink-0 ml-3">×</button>
+          </div>
+        </div>
+      )}
+
       {/* Menu grid */}
-      <div className="max-w-2xl mx-auto px-4 py-6">
+      <div className="max-w-2xl mx-auto px-4 py-5">
         {filtered.length === 0 ? (
           <div className="text-center py-16 text-slate-400">
             <div className="text-5xl mb-3">🍽️</div>
-            <p>No items available in this category</p>
+            <p>No items in this category</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-2">
-            {filtered.map((item) => (
-              <MenuCard
-                key={item.id}
-                item={item}
-                cart={cart}
-                onAdd={addToCart}
-                onRemove={removeFromCart}
-              />
-            ))}
-          </div>
+          <>
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-2">
+              {filtered.filter((i) => i.available).map((item) => (
+                <MenuCard
+                  key={item.id}
+                  item={item}
+                  cart={cart}
+                  onAdd={addToCart}
+                  onRemove={removeFromCart}
+                />
+              ))}
+            </div>
+            {/* Sold out items */}
+            {filtered.some((i) => !i.available) && (
+              <div className="mt-6">
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3 flex items-center gap-2">
+                  <span className="flex-1 h-px bg-slate-200" />
+                  Currently Unavailable
+                  <span className="flex-1 h-px bg-slate-200" />
+                </p>
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 opacity-50">
+                  {filtered.filter((i) => !i.available).map((item) => (
+                    <div key={item.id} className="relative">
+                      <MenuCard
+                        item={item}
+                        cart={cart}
+                        onAdd={() => {}}
+                        onRemove={() => {}}
+                      />
+                      <div className="absolute inset-0 bg-white/60 rounded-2xl flex items-center justify-center">
+                        <span className="bg-slate-700 text-white text-xs font-bold px-3 py-1.5 rounded-full">Sold Out</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
 
