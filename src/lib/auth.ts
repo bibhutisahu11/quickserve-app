@@ -35,6 +35,7 @@ export const authOptions: NextAuthOptions = {
           role: admin.role,
           orgId: admin.orgId ?? null,
           orgSlug: admin.org?.slug ?? null,
+          orgName: admin.org?.name ?? null,
         };
       },
     }),
@@ -47,10 +48,11 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
-        const u = user as unknown as { role: string; orgId: string | null; orgSlug: string | null };
+        const u = user as unknown as { role: string; orgId: string | null; orgSlug: string | null; orgName: string | null };
         token.role = u.role;
         token.orgId = u.orgId;
         token.orgSlug = u.orgSlug;
+        token.orgName = u.orgName;
       }
       return token;
     },
@@ -60,6 +62,7 @@ export const authOptions: NextAuthOptions = {
         session.user.role = token.role as string;
         session.user.orgId = (token.orgId as string | null) ?? null;
         session.user.orgSlug = (token.orgSlug as string | null) ?? null;
+        session.user.orgName = (token.orgName as string | null) ?? null;
       }
       return session;
     },

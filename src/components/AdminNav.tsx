@@ -40,10 +40,17 @@ export default function AdminNav() {
           <div className="flex items-center gap-2">
             <span className="text-xl font-black text-amber-400 tracking-tight">QS</span>
             <div>
-              <span className="font-bold text-lg text-amber-400">
-                {session?.user?.name ?? "Admin"}
-              </span>
-              <span className="text-slate-500 text-xs ml-2">
+              <div className="flex items-center gap-1.5">
+                <span className="font-bold text-base text-amber-400 leading-tight">
+                  {session?.user?.name ?? "Admin"}
+                </span>
+                {session?.user?.orgName && (
+                  <span className="text-xs bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded font-medium leading-tight">
+                    {session.user.orgName}
+                  </span>
+                )}
+              </div>
+              <span className="text-slate-500 text-xs">
                 {ROLE_LABELS[role] ?? role}
               </span>
             </div>
