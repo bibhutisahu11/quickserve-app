@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import ScanBillModal from "./ScanBillModal";
 
 interface Expense {
   id: string;
@@ -86,6 +87,8 @@ export default function ExpenseManager() {
   const [error, setError]       = useState("");
   const [editId, setEditId]     = useState<string | null>(null);
   const [editForm, setEditForm] = useState(EMPTY_FORM);
+  const [showScan, setShowScan] = useState(false);
+  const [scanFlash, setScanFlash] = useState(false);
 
   // Filters
   const [filterCat,  setFilterCat]  = useState("All");
@@ -105,6 +108,20 @@ export default function ExpenseManager() {
   }, [dateFrom, dateTo, filterCat]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  function handleScanned(data: { amount: number; category: string; description: string; date: string; paymentMode: string }) {
+    setForm({
+      amount:      String(data.amount),
+      category:    data.category,
+      description: data.description,
+      date:        data.date,
+      paymentMode: data.paymentMode,
+    });
+    setShowScan(false);
+    setShowAdd(true);
+    setScanFlash(true);
+    setTimeout(() => setScanFlash(false), 2000);
+  }
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
@@ -201,11 +218,14 @@ export default function ExpenseManager() {
           <h1 className="text-2xl font-bold text-slate-800">Expenses</h1>
           <p className="text-slate-500 text-sm">{data?.expenses.length ?? 0} records</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <button onClick={exportCsv} className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-medium px-4 py-2 rounded-xl text-sm transition-colors">
             ⬇ Export CSV
           </button>
-          <button onClick={() => { setShowAdd(true); setError(""); }} className="bg-amber-500 hover:bg-amber-600 text-white font-bold px-5 py-2 rounded-xl text-sm transition-colors">
+          <button onClick={() => setShowScan(true)} className="bg-white border border-amber-300 hover:bg-amber-50 text-amber-700 font-semibold px-4 py-2 rounded-xl text-sm transition-colors flex items-center gap-1.5">
+            🧾 Scan Bill
+          </button>
+          <button onClick={() => { setShowAdd(true); setError(""); setForm(EMPTY_FORM); }} className="bg-amber-500 hover:bg-amber-600 text-white font-bold px-5 py-2 rounded-xl text-sm transition-colors">
             + Add Expense
           </button>
         </div>
@@ -272,10 +292,28 @@ export default function ExpenseManager() {
         </div>
       )}
 
+      {/* Scan Bill Modal */}
+      {showScan && <ScanBillModal onScanned={handleScanned} onClose={() => setShowScan(false)} />}
+
+      {/* Scan success flash */}
+      {scanFlash && (
+        <div className="bg-green-50 border border-green-200 text-green-800 rounded-xl px-5 py-3 flex items-center gap-3 animate-pulse">
+          <span className="text-xl">✅</span>
+          <p className="font-semibold text-sm">Bill scanned! Review the details below and save.</p>
+        </div>
+      )}
+
       {/* Add Expense Form */}
       {showAdd && (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-          <h2 className="font-bold text-slate-800 mb-4">New Expense</h2>
+          <div className="flex items-center gap-3 mb-4">
+            <h2 className="font-bold text-slate-800">New Expense</h2>
+            {scanFlash && (
+              <span className="bg-green-100 text-green-700 text-xs font-semibold px-2.5 py-1 rounded-full border border-green-200">
+                ✨ Pre-filled from scan
+              </span>
+            )}
+          </div>
           {error && <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-2 mb-4">{error}</div>}
           <form onSubmit={handleAdd} className="grid sm:grid-cols-2 gap-4">
             <div>
