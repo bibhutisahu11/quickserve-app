@@ -33,6 +33,9 @@ export default function SuperAdminDashboard() {
   const [editForm, setEditForm] = useState(EDIT_EMPTY);
   const [saving, setSaving] = useState(false);
   const [editError, setEditError] = useState("");
+  const [deleteOrg, setDeleteOrg] = useState<OrgStats | null>(null);
+  const [deleteConfirmName, setDeleteConfirmName] = useState("");
+  const [deleting, setDeleting] = useState(false);
 
   async function fetchOrgs() {
     const res = await fetch("/api/superadmin/orgs");
@@ -89,6 +92,21 @@ export default function SuperAdminDashboard() {
       setEditError(err instanceof Error ? err.message : "Failed to save");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleHardDelete() {
+    if (!deleteOrg || deleteConfirmName !== deleteOrg.name) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/superadmin/orgs/${deleteOrg.id}`, { method: "DELETE" });
+      if (res.ok) {
+        setDeleteOrg(null);
+        setDeleteConfirmName("");
+        fetchOrgs();
+      }
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -217,6 +235,13 @@ export default function SuperAdminDashboard() {
                       >
                         {org.active ? "Deactivate" : "Activate"}
                       </button>
+                      <button
+                        onClick={() => { setDeleteOrg(org); setDeleteConfirmName(""); }}
+                        className="text-xs font-medium px-3 py-1.5 rounded-lg transition-colors bg-red-950 hover:bg-red-900 text-red-400 border border-red-800"
+                        title="Permanently delete this organisation"
+                      >
+                        🗑 Delete
+                      </button>
                     </div>
                   </div>
 
@@ -293,6 +318,60 @@ export default function SuperAdminDashboard() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* ── Hard Delete Confirmation Modal ──────────────────────────────── */}
+      {deleteOrg && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setDeleteOrg(null)} />
+          <div className="relative bg-slate-900 border border-red-800 rounded-2xl shadow-2xl w-full max-w-md p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <span className="text-3xl">⚠️</span>
+              <div>
+                <h2 className="text-xl font-bold text-white">Permanently Delete Organisation</h2>
+                <p className="text-red-400 text-sm mt-0.5">This action cannot be undone</p>
+              </div>
+            </div>
+
+            <div className="bg-red-950/50 border border-red-800 rounded-xl p-4 mb-5 text-sm text-red-300 space-y-1">
+              <p className="font-semibold text-red-200">This will permanently delete:</p>
+              <ul className="list-disc list-inside space-y-0.5 text-red-300/80">
+                <li>All staff accounts ({deleteOrg._count.admins})</li>
+                <li>All menu items ({deleteOrg._count.menuItems})</li>
+                <li>All orders ({deleteOrg._count.orders})</li>
+                <li>All tables, inventory &amp; expenses</li>
+                <li>The organization itself</li>
+              </ul>
+            </div>
+
+            <p className="text-slate-300 text-sm mb-2">
+              Type <span className="font-bold text-white">{deleteOrg.name}</span> to confirm:
+            </p>
+            <input
+              type="text"
+              value={deleteConfirmName}
+              onChange={(e) => setDeleteConfirmName(e.target.value)}
+              placeholder={deleteOrg.name}
+              className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-red-500 text-sm mb-4"
+            />
+
+            <div className="flex gap-3">
+              <button
+                onClick={handleHardDelete}
+                disabled={deleteConfirmName !== deleteOrg.name || deleting}
+                className="flex-1 bg-red-700 hover:bg-red-600 disabled:bg-red-950 disabled:text-red-800 text-white font-bold py-3 rounded-xl transition-colors"
+              >
+                {deleting ? "Deleting…" : "Delete Forever"}
+              </button>
+              <button
+                onClick={() => setDeleteOrg(null)}
+                className="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-200 font-medium py-3 rounded-xl"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
