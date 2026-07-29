@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import LogoUpload from "./LogoUpload";
 
 interface TopCustomer {
   name: string;
@@ -318,7 +319,6 @@ export default function SuperAdminDashboard() {
               {[
                 { label: "Hotel / Org Name *", key: "name", placeholder: "Kalinga Bites" },
                 { label: "URL Slug *", key: "slug", placeholder: "kalinga-bites", hint: `Customer URL: /${editForm.slug || "slug"}/menu/parcel` },
-                { label: "Logo URL", key: "logoUrl", placeholder: "https://..." },
               ].map(({ label, key, placeholder, hint }) => (
                 <div key={key}>
                   <label className="block text-sm font-medium text-slate-300 mb-1">{label}</label>
@@ -332,6 +332,15 @@ export default function SuperAdminDashboard() {
                   {hint && <p className="text-slate-500 text-xs mt-1">{hint}</p>}
                 </div>
               ))}
+
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1">Logo</label>
+                <LogoUpload
+                  currentUrl={editForm.logoUrl}
+                  onChange={(url) => setEditForm((f) => ({ ...f, logoUrl: url }))}
+                  dark
+                />
+              </div>
 
               <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide pt-2">Business Details (used on receipts)</p>
 

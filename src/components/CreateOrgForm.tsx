@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { validateEmail } from "@/lib/validators";
+import LogoUpload from "./LogoUpload";
 
 export default function CreateOrgForm() {
   const router = useRouter();
@@ -133,13 +134,11 @@ export default function CreateOrgForm() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-300 mb-1.5">Logo URL (optional)</label>
-          <input
-            type="url"
-            value={form.logoUrl}
-            onChange={(e) => setForm((f) => ({ ...f, logoUrl: e.target.value }))}
-            placeholder="https://..."
-            className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+          <label className="block text-sm font-medium text-slate-300 mb-1.5">Logo (optional)</label>
+          <LogoUpload
+            currentUrl={form.logoUrl}
+            onChange={(url) => setForm((f) => ({ ...f, logoUrl: url }))}
+            dark
           />
         </div>
 

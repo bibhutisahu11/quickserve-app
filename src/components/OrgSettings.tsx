@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { OrgSettings } from "@/types";
 import { validatePhone, validateEmail } from "@/lib/validators";
+import LogoUpload from "./LogoUpload";
 
 interface Field {
   key: keyof OrgSettings;
@@ -16,7 +17,7 @@ interface Field {
 const FIELDS: Field[] = [
   { key: "name",        label: "Business Name",         placeholder: "Grand Palace Restaurant",  required: true },
   { key: "tagline",     label: "Tagline / Header line", placeholder: "Taste the tradition since 1990", hint: "Shown below the hotel name on receipts" },
-  { key: "logoUrl",     label: "Logo URL",              placeholder: "https://yourdomain.com/logo.png", type: "url", hint: "Direct image URL — shown on receipts & dashboard" },
+  // logoUrl handled separately via LogoUpload component
   { key: "address",     label: "Address",               placeholder: "123 Main Street, City, State - 560001", type: "textarea" },
   { key: "phone",       label: "Phone",                 placeholder: "+91 98765 43210", type: "tel" },
   { key: "email",       label: "Email",                 placeholder: "contact@yourhotel.com", type: "email" },
@@ -99,22 +100,24 @@ export default function OrgSettings() {
         </p>
       </div>
 
-      {/* Live logo preview */}
-      {form.logoUrl && (
-        <div className="mb-6 p-4 bg-slate-50 rounded-xl border border-slate-200 flex items-center gap-4">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={form.logoUrl}
-            alt="logo preview"
-            className="h-16 w-auto object-contain rounded"
-            onError={(e) => (e.currentTarget.style.display = "none")}
-          />
+      {/* Logo upload */}
+      <div className="mb-6 p-5 bg-slate-50 rounded-xl border border-slate-200">
+        <div className="flex items-center gap-4 mb-3">
+          {form.logoUrl && (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img src={form.logoUrl} alt="logo" className="h-12 w-auto object-contain rounded" onError={(e) => (e.currentTarget.style.display = "none")} />
+          )}
           <div>
             <p className="font-bold text-slate-800">{form.name ?? ""}</p>
             {form.tagline && <p className="text-sm text-slate-500">{form.tagline}</p>}
           </div>
         </div>
-      )}
+        <label className="block text-sm font-medium text-slate-700 mb-2">Logo <span className="text-slate-400 font-normal">(optional)</span></label>
+        <LogoUpload
+          currentUrl={form.logoUrl ?? ""}
+          onChange={(url) => setForm((f) => ({ ...f, logoUrl: url || null }))}
+        />
+      </div>
 
       <form onSubmit={handleSave} className="space-y-5">
         {error && (
