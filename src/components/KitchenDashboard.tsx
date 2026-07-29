@@ -47,7 +47,8 @@ export default function KitchenDashboard() {
   const [exportDate, setExportDate] = useState(new Date().toISOString().slice(0, 10));
   const [orgSettings, setOrgSettings] = useState<OrgSettings | null>(null);
   const [categoryMap, setCategoryMap] = useState<Record<string, string>>({});
-  const [tick, setTick] = useState(0); // increments every 30s to refresh ETAs
+  const [tick, setTick] = useState(0);
+  const [todayBirthdays, setTodayBirthdays] = useState<{ name: string; phone: string }[]>([]);
   const knownOrderIds = useRef<Set<string>>(new Set());
   const isFirstLoad = useRef(true);
 
@@ -64,7 +65,21 @@ export default function KitchenDashboard() {
         setCategoryMap(map);
       })
       .catch(() => {});
-    // Tick every 30 s so ETAs countdown live
+    // Check today's birthdays
+    fetch("/api/admin/customers")
+      .then((r) => r.ok ? r.json() : { customers: [] })
+      .then(({ customers }: { customers: { name: string; phone: string; birthday?: string }[] }) => {
+        const today = new Date();
+        const todayMM = today.getMonth();
+        const todayDD = today.getDate();
+        const bdays = customers.filter((c) => {
+          if (!c.birthday) return false;
+          const b = new Date(c.birthday);
+          return b.getMonth() === todayMM && b.getDate() === todayDD;
+        }).map((c) => ({ name: c.name, phone: c.phone }));
+        setTodayBirthdays(bdays);
+      })
+      .catch(() => {});
     const t = setInterval(() => setTick((n) => n + 1), 30_000);
     return () => clearInterval(t);
   }, []);
@@ -262,6 +277,31 @@ export default function KitchenDashboard() {
           </button>
         ))}
       </div>
+
+      {/* ── Today's birthdays banner ──────────────────────────────────────── */}
+      {todayBirthdays.length > 0 && (
+        <div className="mb-4 bg-gradient-to-r from-pink-50 to-rose-50 border border-pink-300 rounded-xl px-5 py-3 flex items-center gap-3 flex-wrap">
+          <span className="text-2xl">🎂</span>
+          <div className="flex-1">
+            <p className="font-bold text-rose-700 text-sm">Birthday Today!</p>
+            <p className="text-rose-600 text-xs">
+              {todayBirthdays.map((b) => b.name).join(", ")}
+            </p>
+          </div>
+          {todayBirthdays.map((b) =>
+            b.phone ? (
+              <a key={b.phone} href={`tel:${b.phone}`}
+                className="bg-rose-500 hover:bg-rose-600 text-white text-xs font-bold px-4 py-1.5 rounded-lg transition-colors">
+                Call {b.name.split(" ")[0]} 🎁
+              </a>
+            ) : null
+          )}
+          <a href="/admin/customers"
+            className="text-rose-500 hover:text-rose-700 text-xs font-medium underline">
+            View all birthdays →
+          </a>
+        </div>
+      )}
 
       {/* ── Attention section ── overdue + near-ETA active orders ────────── */}
       {(() => {

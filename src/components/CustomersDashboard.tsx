@@ -25,6 +25,16 @@ interface Customer {
   orders: CustomerOrder[];
 }
 
+/** Returns how many days until the next occurrence of this birthday (0 = today) */
+function daysUntilBirthday(birthdayStr: string): number {
+  const bday  = new Date(birthdayStr);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const next  = new Date(today.getFullYear(), bday.getMonth(), bday.getDate());
+  if (next < today) next.setFullYear(today.getFullYear() + 1);
+  return Math.round((next.getTime() - today.getTime()) / 86_400_000);
+}
+
 function exportCustomersCsv(customers: Customer[]) {
   const rows = [
     ["Name", "Phone", "Email", "Birthday", "Total Orders", "Total Spent (₹)", "Favourite Item", "Last Order Date"],
@@ -94,6 +104,107 @@ export default function CustomersDashboard() {
           📥 Export for Campaign
         </button>
       </div>
+
+      {/* ── Upcoming Birthdays ─────────────────────────────────────────── */}
+      {(() => {
+        const withBirthday = customers
+          .filter((c) => c.birthday)
+          .map((c) => ({ ...c, daysLeft: daysUntilBirthday(c.birthday!) }))
+          .filter((c) => c.daysLeft <= 30)
+          .sort((a, b) => a.daysLeft - b.daysLeft);
+
+        if (withBirthday.length === 0) return null;
+
+        const todayBdays = withBirthday.filter((c) => c.daysLeft === 0);
+        const soonBdays  = withBirthday.filter((c) => c.daysLeft > 0 && c.daysLeft <= 7);
+        const laterBdays = withBirthday.filter((c) => c.daysLeft > 7);
+
+        return (
+          <div className="mb-6 bg-gradient-to-r from-pink-50 to-rose-50 border border-pink-200 rounded-2xl p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <span className="text-2xl">🎂</span>
+              <h2 className="text-lg font-bold text-pink-800">Upcoming Birthdays</h2>
+              <span className="ml-auto bg-pink-100 text-pink-700 text-xs font-bold px-2.5 py-1 rounded-full">
+                {withBirthday.length} in next 30 days
+              </span>
+            </div>
+
+            {todayBdays.length > 0 && (
+              <div className="mb-4">
+                <p className="text-xs font-bold text-rose-600 uppercase tracking-wide mb-2">🎉 Today!</p>
+                <div className="flex flex-wrap gap-2">
+                  {todayBdays.map((c) => (
+                    <div key={c.key} className="bg-white border-2 border-rose-300 rounded-xl px-4 py-2.5 flex items-center gap-2 shadow-sm">
+                      <div className="w-8 h-8 rounded-full bg-rose-100 flex items-center justify-center text-rose-600 font-bold text-sm flex-shrink-0">
+                        {c.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <p className="font-bold text-slate-800 text-sm">{c.name}</p>
+                        {c.phone && <p className="text-xs text-slate-500">{c.phone}</p>}
+                        {c.email && <p className="text-xs text-blue-500">{c.email}</p>}
+                      </div>
+                      {c.phone && (
+                        <a href={`tel:${c.phone}`}
+                          className="ml-2 bg-rose-500 hover:bg-rose-600 text-white text-xs font-bold px-3 py-1 rounded-lg transition-colors">
+                          Call 🎁
+                        </a>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {soonBdays.length > 0 && (
+              <div className="mb-3">
+                <p className="text-xs font-bold text-pink-600 uppercase tracking-wide mb-2">This Week</p>
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                  {soonBdays.map((c) => (
+                    <div key={c.key} className="bg-white border border-pink-200 rounded-xl px-4 py-3 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-full bg-pink-100 flex items-center justify-center text-pink-600 font-bold text-sm flex-shrink-0">
+                          {c.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="font-semibold text-slate-800 text-sm">{c.name}</p>
+                          {c.phone && <p className="text-xs text-slate-400">{c.phone}</p>}
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0 ml-2">
+                        <span className="bg-pink-100 text-pink-700 text-xs font-bold px-2 py-0.5 rounded-full">
+                          {c.daysLeft === 1 ? "Tomorrow" : `${c.daysLeft}d`}
+                        </span>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          {new Date(new Date().getFullYear(), new Date(c.birthday!).getMonth(), new Date(c.birthday!).getDate())
+                            .toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {laterBdays.length > 0 && (
+              <div>
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">Later this month</p>
+                <div className="flex flex-wrap gap-2">
+                  {laterBdays.map((c) => (
+                    <div key={c.key} className="bg-white/70 border border-slate-200 rounded-lg px-3 py-2 flex items-center gap-2 text-sm">
+                      <span className="font-medium text-slate-700">{c.name}</span>
+                      <span className="text-slate-400 text-xs">
+                        {new Date(new Date().getFullYear(), new Date(c.birthday!).getMonth(), new Date(c.birthday!).getDate())
+                          .toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+                      </span>
+                      <span className="text-xs bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full">{c.daysLeft}d</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Search */}
       <form onSubmit={handleSearch} className="flex gap-2 mb-6">
