@@ -17,6 +17,7 @@ export default function CreateOrgForm() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [emailError, setEmailError] = useState("");
+  const [slugEdited, setSlugEdited] = useState(false);
 
   function autoSlug(name: string) {
     return name
@@ -32,8 +33,14 @@ export default function CreateOrgForm() {
     setForm((f) => ({
       ...f,
       name,
-      slug: f.slug || autoSlug(name),
+      // Only auto-update slug if user hasn't manually edited it
+      slug: slugEdited ? f.slug : autoSlug(name),
     }));
+  }
+
+  function handleSlugChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setSlugEdited(true);
+    setForm((f) => ({ ...f, slug: e.target.value }));
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -98,20 +105,30 @@ export default function CreateOrgForm() {
             URL Slug * <span className="text-slate-500 font-normal">(used in customer menu URL)</span>
           </label>
           <div className="flex items-center gap-2">
-            <span className="text-slate-500 text-sm">your-domain.com/</span>
+            <span className="text-slate-500 text-sm whitespace-nowrap">quickserve-app.vercel.app/</span>
             <input
               type="text"
               value={form.slug}
-              onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value }))}
+              onChange={handleSlugChange}
               required
               pattern="[a-z0-9-]+"
               title="Lowercase letters, numbers, and hyphens only"
               placeholder="grand-palace"
               className="flex-1 bg-slate-700 border border-slate-600 rounded-lg px-3 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
             />
+            {slugEdited && (
+              <button
+                type="button"
+                onClick={() => { setSlugEdited(false); setForm((f) => ({ ...f, slug: autoSlug(f.name) })); }}
+                className="text-xs text-violet-400 hover:text-violet-300 whitespace-nowrap"
+                title="Re-sync slug from name"
+              >
+                ↺ reset
+              </button>
+            )}
           </div>
           <p className="text-slate-500 text-xs mt-1">
-            Customer menu will be at: /{form.slug || "your-slug"}/menu/parcel
+            Customer menu: /{form.slug || "your-slug"}/menu/parcel
           </p>
         </div>
 
