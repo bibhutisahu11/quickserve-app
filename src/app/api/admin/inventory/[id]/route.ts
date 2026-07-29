@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const ctx = await getOrgContext(req);
   if (ctx.error) return ctx.error;
@@ -14,6 +14,7 @@ export async function PATCH(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  const { id } = await params;
   const body = await req.json();
   const allowed = ["name", "category", "quantity", "unit", "minStock"];
   const data: Record<string, unknown> = {};
@@ -22,7 +23,7 @@ export async function PATCH(
   }
 
   const updated = await prisma.inventoryItem.update({
-    where: { id: params.id },
+    where: { id },
     data,
     include: { logs: { orderBy: { createdAt: "desc" }, take: 5 } },
   });
@@ -31,7 +32,7 @@ export async function PATCH(
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const ctx = await getOrgContext(req);
   if (ctx.error) return ctx.error;
@@ -39,6 +40,7 @@ export async function DELETE(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  await prisma.inventoryItem.delete({ where: { id: params.id } });
+  const { id } = await params;
+  await prisma.inventoryItem.delete({ where: { id } });
   return NextResponse.json({ ok: true });
 }

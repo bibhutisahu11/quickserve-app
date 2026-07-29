@@ -6,11 +6,12 @@ export const dynamic = "force-dynamic";
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const ctx = await getOrgContext(req);
   if (ctx.error) return ctx.error;
 
+  const { id } = await params;
   const { change, note, type } = await req.json();
   if (!change || !type) {
     return NextResponse.json({ error: "change and type are required" }, { status: 400 });
@@ -19,8 +20,7 @@ export async function POST(
     return NextResponse.json({ error: "Invalid type" }, { status: 400 });
   }
 
-  // Apply the change to current stock
-  const item = await prisma.inventoryItem.findUnique({ where: { id: params.id } });
+  const item = await prisma.inventoryItem.findUnique({ where: { id } });
   if (!item) return NextResponse.json({ error: "Item not found" }, { status: 404 });
 
   const delta = type === "OUT" ? -Math.abs(Number(change)) : Number(change);
@@ -28,10 +28,10 @@ export async function POST(
 
   const [log, updated] = await prisma.$transaction([
     prisma.stockLog.create({
-      data: { itemId: params.id, change: delta, note: note ?? null, type },
+      data: { itemId: id, change: delta, note: note ?? null, type },
     }),
     prisma.inventoryItem.update({
-      where: { id: params.id },
+      where: { id },
       data: { quantity: newQty },
       include: { logs: { orderBy: { createdAt: "desc" }, take: 5 } },
     }),
