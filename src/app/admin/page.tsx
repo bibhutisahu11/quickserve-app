@@ -35,7 +35,9 @@ export default function AdminLoginPage() {
     const result = await signIn("credentials", { email, password, redirect: false });
     setLoading(false);
 
-    if (result?.error) {
+    if (result?.error === "OrgInactive") {
+      setError("Your organization account has been deactivated. Please contact your Super Admin.");
+    } else if (result?.error) {
       setError("Invalid email or password");
     } else {
       // Session will update and the useEffect will redirect

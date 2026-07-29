@@ -28,6 +28,11 @@ export const authOptions: NextAuthOptions = {
 
         if (!passwordMatch) return null;
 
+        // Block login if the org is inactive (Super Admins have no org, so they are exempt)
+        if (admin.role !== "SUPER_ADMIN" && admin.org && !admin.org.active) {
+          throw new Error("OrgInactive");
+        }
+
         return {
           id: admin.id,
           email: admin.email,
