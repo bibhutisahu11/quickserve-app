@@ -185,3 +185,100 @@ export function formatWait(mins: number): string {
   if (mins === 1) return "~1 min";
   return `~${mins} mins`;
 }
+
+/**
+ * Max base prep time across all categories in a single order.
+ * This represents the "expected kitchen time" for the slowest section.
+ */
+export function getOrderMaxPrepTime(
+  order: OrderData,
+  categoryMap: Record<string, string>
+): number {
+  let max = 0;
+  for (const item of order.items) {
+    const cat = categoryMap[item.menuItemId] ?? "default";
+    const pt = getPrepTime(cat);
+    if (pt > max) max = pt;
+  }
+  return max || 8;
+}
+
+/**
+ * Urgency level of an active order compared to its expected prep time.
+ *
+ * Logic (elapsed = minutes since order was placed):
+ *  - "overdue" : elapsed > maxPrepTime  (order crossed its ETA, still not ready)
+ *  - "near"    : elapsed > maxPrepTime × 0.75  (within last 25% of expected time)
+ *  - "ok"      : everything on track
+ *
+ * For orders that have OTHER orders ahead in the queue, we add the
+ * predecessor queue time so the threshold is bumped up accordingly.
+ */
+export function getOrderUrgency(
+  order: OrderData,
+  allOrders: OrderData[],
+  categoryMap: Record<string, string>
+): "overdue" | "near" | "ok" {
+  if (
+    order.status === "DONE" ||
+    order.status === "CANCELLED" ||
+    order.status === "READY"
+  ) return "ok";
+
+  const elapsed  = elapsedMins(order.createdAt);
+  const maxPrep  = getOrderMaxPrepTime(order, categoryMap);
+  const orderTime = new Date(order.createdAt).getTime();
+
+  // Count how many active PENDING orders were placed before this one
+  // (each one adds ~maxPrep more expected time before this order's section starts)
+  let queueBump = 0;
+  for (const o of allOrders) {
+    if (o.id === order.id) continue;
+    if (o.status === "DONE" || o.status === "CANCELLED") continue;
+    if (new Date(o.createdAt).getTime() >= orderTime) continue;
+    // Rough check: does the predecessor share any category?
+    const shares = o.items.some(
+      (i) => (categoryMap[i.menuItemId] ?? "default") ===
+              (categoryMap[order.items[0]?.menuItemId ?? ""] ?? "default")
+    );
+    if (shares) {
+      const predElapsed = elapsedMins(o.createdAt);
+      queueBump += Math.max(0, maxPrep - predElapsed);
+    }
+  }
+
+  const threshold = maxPrep + queueBump;
+
+  if (elapsed > threshold)               return "overdue";
+  if (elapsed > threshold * 0.75)        return "near";
+  return "ok";
+}
+
+/** How many minutes past due an overdue order is (0 if not overdue) */
+export function overdueByMins(
+  order: OrderData,
+  allOrders: OrderData[],
+  categoryMap: Record<string, string>
+): number {
+  const elapsed  = elapsedMins(order.createdAt);
+  const maxPrep  = getOrderMaxPrepTime(order, categoryMap);
+  const orderTime = new Date(order.createdAt).getTime();
+
+  let queueBump = 0;
+  for (const o of allOrders) {
+    if (o.id === order.id) continue;
+    if (o.status === "DONE" || o.status === "CANCELLED") continue;
+    if (new Date(o.createdAt).getTime() >= orderTime) continue;
+    const shares = o.items.some(
+      (i) => (categoryMap[i.menuItemId] ?? "default") ===
+              (categoryMap[order.items[0]?.menuItemId ?? ""] ?? "default")
+    );
+    if (shares) {
+      const predElapsed = elapsedMins(o.createdAt);
+      queueBump += Math.max(0, maxPrep - predElapsed);
+    }
+  }
+
+  const threshold = maxPrep + queueBump;
+  return Math.max(0, Math.round(elapsed - threshold));
+}

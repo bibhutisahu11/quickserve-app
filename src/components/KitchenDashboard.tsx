@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { MenuItemData, OrderData, OrderStatus, OrgSettings } from "@/types";
-import { estimateWaitMins, formatWait } from "@/lib/waitingTime";
+import { estimateWaitMins, formatWait, getOrderUrgency, overdueByMins } from "@/lib/waitingTime";
 import { playNewOrderSound } from "@/lib/notificationSound";
 import { exportOrdersToCsv } from "@/lib/exportCsv";
 import { printOrder, printAllOrders } from "@/lib/printOrder";
@@ -262,6 +262,120 @@ export default function KitchenDashboard() {
           </button>
         ))}
       </div>
+
+      {/* ── Attention section ── overdue + near-ETA active orders ────────── */}
+      {(() => {
+        const activeOrders = orders.filter(
+          (o) => o.status === "PENDING" || o.status === "PREPARING"
+        );
+        const overdue = activeOrders.filter(
+          (o) => getOrderUrgency(o, activeOrders, categoryMap) === "overdue"
+        );
+        const near = activeOrders.filter(
+          (o) => getOrderUrgency(o, activeOrders, categoryMap) === "near"
+        );
+        if (overdue.length === 0 && near.length === 0) return null;
+
+        return (
+          <div className="mb-6 space-y-3">
+            {overdue.length > 0 && (
+              <div className="bg-red-50 border border-red-300 rounded-xl p-4">
+                <h2 className="text-red-700 font-bold text-sm mb-3 flex items-center gap-2">
+                  🚨 Overdue — Action Required
+                  <span className="bg-red-600 text-white text-xs rounded-full px-2 py-0.5">
+                    {overdue.length}
+                  </span>
+                </h2>
+                <div className="flex flex-col gap-2">
+                  {overdue.map((o) => {
+                    const late = overdueByMins(o, activeOrders, categoryMap);
+                    return (
+                      <div
+                        key={o.id}
+                        className="bg-white border border-red-200 rounded-lg px-4 py-3 flex items-center justify-between"
+                      >
+                        <div>
+                          <span className="font-bold text-slate-800 text-sm">
+                            #{o.id.slice(-6).toUpperCase()}
+                          </span>
+                          <span className="text-slate-500 text-xs ml-2">{o.customerName}</span>
+                          <span className="text-slate-400 text-xs ml-2">
+                            {o.type === "TABLE" ? `🍽️ ${o.table?.name ?? "Table"}` : "📦 Parcel"}
+                          </span>
+                          <div className="text-xs text-slate-500 mt-0.5">
+                            {o.items.map((i) => `${i.name} ×${i.quantity}`).join(", ")}
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0 ml-4">
+                          <p className="text-red-600 font-extrabold text-sm">
+                            {late > 0 ? `+${late}m late` : "Due now"}
+                          </p>
+                          {NEXT_STATUS[o.status] && (
+                            <button
+                              onClick={() => updateStatus(o.id, NEXT_STATUS[o.status]!)}
+                              disabled={updatingId === o.id}
+                              className="mt-1 bg-red-600 hover:bg-red-700 disabled:bg-red-300 text-white text-xs font-bold px-3 py-1 rounded-lg transition-colors"
+                            >
+                              {updatingId === o.id ? "…" : NEXT_LABEL[o.status]}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {near.length > 0 && (
+              <div className="bg-amber-50 border border-amber-300 rounded-xl p-4">
+                <h2 className="text-amber-700 font-bold text-sm mb-3 flex items-center gap-2">
+                  ⚠️ Almost Due — Speed Up
+                  <span className="bg-amber-500 text-white text-xs rounded-full px-2 py-0.5">
+                    {near.length}
+                  </span>
+                </h2>
+                <div className="flex flex-col gap-2">
+                  {near.map((o) => {
+                    const remaining = estimateWaitMins(o, activeOrders, categoryMap);
+                    return (
+                      <div
+                        key={o.id}
+                        className="bg-white border border-amber-200 rounded-lg px-4 py-3 flex items-center justify-between"
+                      >
+                        <div>
+                          <span className="font-bold text-slate-800 text-sm">
+                            #{o.id.slice(-6).toUpperCase()}
+                          </span>
+                          <span className="text-slate-500 text-xs ml-2">{o.customerName}</span>
+                          <span className="text-slate-400 text-xs ml-2">
+                            {o.type === "TABLE" ? `🍽️ ${o.table?.name ?? "Table"}` : "📦 Parcel"}
+                          </span>
+                          <div className="text-xs text-slate-500 mt-0.5">
+                            {o.items.map((i) => `${i.name} ×${i.quantity}`).join(", ")}
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0 ml-4">
+                          <p className="text-amber-600 font-bold text-sm">⏱ {formatWait(remaining)}</p>
+                          {NEXT_STATUS[o.status] && (
+                            <button
+                              onClick={() => updateStatus(o.id, NEXT_STATUS[o.status]!)}
+                              disabled={updatingId === o.id}
+                              className="mt-1 bg-amber-500 hover:bg-amber-600 disabled:bg-amber-300 text-white text-xs font-bold px-3 py-1 rounded-lg transition-colors"
+                            >
+                              {updatingId === o.id ? "…" : NEXT_LABEL[o.status]}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Order cards */}
       {filteredOrders.length === 0 ? (
