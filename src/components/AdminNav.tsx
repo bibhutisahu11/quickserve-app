@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 
@@ -26,7 +27,7 @@ const ROLE_LABELS: Record<string, string> = {
   SUPER_ADMIN: "Super Admin",
 };
 
-export default function AdminNav({ orgName }: { orgName: string | null }) {
+export default function AdminNav({ orgName, orgLogo }: { orgName: string | null; orgLogo?: string | null }) {
   const pathname = usePathname();
   const { data: session } = useSession();
   const role = session?.user?.role ?? "HOTEL_ADMIN";
@@ -38,7 +39,18 @@ export default function AdminNav({ orgName }: { orgName: string | null }) {
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center gap-2">
-            <span className="text-xl font-black text-amber-400 tracking-tight">QS</span>
+            {orgLogo ? (
+              <Image
+                src={orgLogo}
+                alt="org logo"
+                width={36}
+                height={36}
+                className="rounded-lg object-contain bg-white p-0.5"
+                unoptimized
+              />
+            ) : (
+              <span className="text-xl font-black text-amber-400 tracking-tight">QS</span>
+            )}
             <div>
               <div className="font-bold text-base text-amber-400 leading-tight">
                 {orgName ?? session?.user?.orgName ?? session?.user?.name ?? "Admin"}

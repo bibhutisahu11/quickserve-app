@@ -5,8 +5,11 @@ export async function middleware(req: NextRequest) {
   const token = await getToken({ req });
   const { pathname } = req.nextUrl;
 
+  // Attach pathname as header so server components (layouts) can read it
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.set("x-pathname", pathname);
+
   // ── /superadmin/* ──────────────────────────────────────────────────────
-  // Only SUPER_ADMIN can access
   if (pathname.startsWith("/superadmin")) {
     if (!token) {
       return NextResponse.redirect(new URL("/admin", req.url));
@@ -14,7 +17,7 @@ export async function middleware(req: NextRequest) {
     if (token.role !== "SUPER_ADMIN") {
       return NextResponse.redirect(new URL("/admin/dashboard", req.url));
     }
-    return NextResponse.next();
+    return NextResponse.next({ request: { headers: requestHeaders } });
   }
 
   // ── /admin/* (except login page /admin itself) ─────────────────────────
@@ -31,7 +34,7 @@ export async function middleware(req: NextRequest) {
     }
 
     // Role-based redirects from /admin/dashboard (the default landing)
-    if (pathname === "/admin/dashboard" || pathname === "/admin") {
+    if (pathname === "/admin/dashboard") {
       if (role === "KITCHEN") {
         return NextResponse.redirect(new URL("/admin/kitchen", req.url));
       }
@@ -58,12 +61,12 @@ export async function middleware(req: NextRequest) {
       return NextResponse.redirect(new URL("/admin/dashboard", req.url));
     }
 
-    return NextResponse.next();
+    return NextResponse.next({ request: { headers: requestHeaders } });
   }
 
-  return NextResponse.next();
+  return NextResponse.next({ request: { headers: requestHeaders } });
 }
 
 export const config = {
-  matcher: ["/admin/:path+", "/superadmin/:path*"],
+  matcher: ["/admin", "/admin/:path+", "/superadmin/:path*"],
 };
