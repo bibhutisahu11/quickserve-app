@@ -3,6 +3,7 @@ import { authOptions } from "@/lib/auth";
 import AdminNav from "@/components/AdminNav";
 import WelcomeToast from "@/components/WelcomeToast";
 import { prisma } from "@/lib/prisma";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -16,11 +17,16 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     try {
       const org = await prisma.organization.findUnique({
         where: { id: session.user.orgId },
-        select: { name: true },
+        select: { name: true, active: true },
       });
       if (org?.name) orgName = org.name;
+
+      // Kick out users whose org has been deactivated mid-session
+      if (session.user.role !== "SUPER_ADMIN" && org && !org.active) {
+        redirect("/admin?error=OrgInactive");
+      }
     } catch {
-      // fall back to JWT orgName already set above
+      // fall back to JWT values on DB error
     }
   }
 

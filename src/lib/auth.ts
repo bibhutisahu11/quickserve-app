@@ -41,6 +41,7 @@ export const authOptions: NextAuthOptions = {
           orgId: admin.orgId ?? null,
           orgSlug: admin.org?.slug ?? null,
           orgName: admin.org?.name ?? null,
+          orgActive: admin.org?.active ?? true,
         };
       },
     }),
@@ -53,11 +54,24 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
-        const u = user as unknown as { role: string; orgId: string | null; orgSlug: string | null; orgName: string | null };
+        const u = user as unknown as { role: string; orgId: string | null; orgSlug: string | null; orgName: string | null; orgActive: boolean };
         token.role = u.role;
         token.orgId = u.orgId;
         token.orgSlug = u.orgSlug;
         token.orgName = u.orgName;
+        token.orgActive = u.orgActive;
+      } else if (token.orgId) {
+        // Re-check org active status from DB on every session refresh
+        try {
+          const org = await prisma.organization.findUnique({
+            where: { id: token.orgId as string },
+            select: { active: true, name: true },
+          });
+          token.orgActive = org?.active ?? true;
+          if (org?.name) token.orgName = org.name;
+        } catch {
+          // keep existing token values on DB error
+        }
       }
       return token;
     },
@@ -68,6 +82,7 @@ export const authOptions: NextAuthOptions = {
         session.user.orgId = (token.orgId as string | null) ?? null;
         session.user.orgSlug = (token.orgSlug as string | null) ?? null;
         session.user.orgName = (token.orgName as string | null) ?? null;
+        session.user.orgActive = (token.orgActive as boolean) ?? true;
       }
       return session;
     },

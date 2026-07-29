@@ -11,6 +11,7 @@ declare module "next-auth" {
       orgId: string | null;
       orgSlug: string | null;
       orgName: string | null;
+      orgActive: boolean;
     };
   }
 }
