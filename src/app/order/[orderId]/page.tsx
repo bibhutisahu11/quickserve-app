@@ -27,14 +27,12 @@ export default function OrderStatusPage() {
   const [order, setOrder] = useState<OrderData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [etaLabel, setEtaLabel] = useState<string | null>(null);
 
   async function fetchOrder() {
     try {
       const res = await fetch(`/api/orders/${orderId}`);
-      if (!res.ok) {
-        setError("Order not found");
-        return;
-      }
+      if (!res.ok) { setError("Order not found"); return; }
       const data = await res.json();
       setOrder(data);
     } catch {
@@ -44,11 +42,21 @@ export default function OrderStatusPage() {
     }
   }
 
+  async function fetchEta() {
+    try {
+      const res = await fetch(`/api/orders/${orderId}/eta`);
+      if (!res.ok) return;
+      const data = await res.json();
+      setEtaLabel(data.done ? null : data.label);
+    } catch { /* ignore */ }
+  }
+
   useEffect(() => {
     fetchOrder();
-    // Poll every 10 seconds for status updates
-    const interval = setInterval(fetchOrder, 10000);
-    return () => clearInterval(interval);
+    fetchEta();
+    const orderInterval = setInterval(fetchOrder, 10_000);
+    const etaInterval   = setInterval(fetchEta,  30_000);
+    return () => { clearInterval(orderInterval); clearInterval(etaInterval); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderId]);
 
@@ -88,6 +96,20 @@ export default function OrderStatusPage() {
             Order #{order.id.slice(-8).toUpperCase()}
           </p>
         </div>
+
+        {/* ETA banner */}
+        {etaLabel && (order.status === "PENDING" || order.status === "PREPARING") && (
+          <div className="bg-orange-50 border border-orange-200 rounded-2xl px-5 py-4 flex items-center gap-3 shadow-sm">
+            <span className="text-2xl">⏱</span>
+            <div>
+              <p className="font-bold text-orange-700 text-sm">Estimated Wait</p>
+              <p className="text-orange-600 text-xl font-extrabold">{etaLabel}</p>
+            </div>
+            <p className="ml-auto text-xs text-orange-400 text-right leading-tight">
+              Updates every<br/>30 seconds
+            </p>
+          </div>
+        )}
 
         {/* Progress bar */}
         {order.status !== "CANCELLED" && (

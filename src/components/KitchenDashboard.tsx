@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { OrderData, OrderStatus, OrgSettings } from "@/types";
+import { MenuItemData, OrderData, OrderStatus, OrgSettings } from "@/types";
+import { estimateWaitMins, formatWait } from "@/lib/waitingTime";
 import { playNewOrderSound } from "@/lib/notificationSound";
 import { exportOrdersToCsv } from "@/lib/exportCsv";
 import { printOrder, printAllOrders } from "@/lib/printOrder";
@@ -45,6 +46,8 @@ export default function KitchenDashboard() {
   const [newOrderFlash, setNewOrderFlash] = useState(false);
   const [exportDate, setExportDate] = useState(new Date().toISOString().slice(0, 10));
   const [orgSettings, setOrgSettings] = useState<OrgSettings | null>(null);
+  const [categoryMap, setCategoryMap] = useState<Record<string, string>>({});
+  const [tick, setTick] = useState(0); // increments every 30s to refresh ETAs
   const knownOrderIds = useRef<Set<string>>(new Set());
   const isFirstLoad = useRef(true);
 
@@ -53,6 +56,17 @@ export default function KitchenDashboard() {
       .then((r) => r.ok ? r.json() : null)
       .then((data) => data && setOrgSettings(data))
       .catch(() => {});
+    fetch("/api/menu")
+      .then((r) => r.ok ? r.json() : [])
+      .then((items: MenuItemData[]) => {
+        const map: Record<string, string> = {};
+        items.forEach((m) => { map[m.id] = m.category; });
+        setCategoryMap(map);
+      })
+      .catch(() => {});
+    // Tick every 30 s so ETAs countdown live
+    const t = setInterval(() => setTick((n) => n + 1), 30_000);
+    return () => clearInterval(t);
   }, []);
 
   async function fetchOrders() {
@@ -262,6 +276,10 @@ export default function KitchenDashboard() {
             const nextStatus = NEXT_STATUS[order.status];
             const nextLabel = NEXT_LABEL[order.status];
             const isUpdating = updatingId === order.id;
+            // ETA — only meaningful for PENDING/PREPARING; tick forces recalc every 30s
+            const waitMins = (order.status === "PENDING" || order.status === "PREPARING")
+              ? estimateWaitMins(order, orders, categoryMap) + (tick * 0)
+              : 0;
 
             return (
               <div
@@ -283,7 +301,12 @@ export default function KitchenDashboard() {
                         ? `🍽️ ${order.table?.name ?? "Table"}`
                         : "📦 Parcel"}
                     </span>
-                    <p className="text-xs text-slate-400 mt-1">
+                    {waitMins > 0 && (
+                      <p className="text-xs font-semibold text-orange-600 mt-1">
+                        ⏱ {formatWait(waitMins)}
+                      </p>
+                    )}
+                    <p className="text-xs text-slate-400 mt-0.5">
                       {new Date(order.createdAt).toLocaleTimeString([], {
                         hour: "2-digit",
                         minute: "2-digit",
