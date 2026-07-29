@@ -11,16 +11,14 @@ export async function PATCH(
 
   try {
     const { id } = await params;
-    const { name, logoUrl, active } = await req.json();
+    const body = await req.json();
+    const allowed = ["name", "slug", "logoUrl", "active", "address", "phone", "email", "gstNumber", "fssaiNumber", "tagline", "footerText"];
+    const data: Record<string, unknown> = {};
+    for (const key of allowed) {
+      if (key in body) data[key] = body[key];
+    }
 
-    const org = await prisma.organization.update({
-      where: { id },
-      data: {
-        ...(name && { name }),
-        ...(logoUrl !== undefined && { logoUrl }),
-        ...(active !== undefined && { active }),
-      },
-    });
+    const org = await prisma.organization.update({ where: { id }, data });
     return NextResponse.json(org);
   } catch (err) {
     console.error(err);

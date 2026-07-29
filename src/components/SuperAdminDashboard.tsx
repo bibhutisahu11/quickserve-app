@@ -22,10 +22,16 @@ interface OrgStats {
   customerStats: { uniqueCustomers: number; topCustomers: TopCustomer[] };
 }
 
+const EDIT_EMPTY = { name: "", slug: "", logoUrl: "", address: "", phone: "", email: "", gstNumber: "", fssaiNumber: "", tagline: "", footerText: "" };
+
 export default function SuperAdminDashboard() {
   const [orgs, setOrgs] = useState<OrgStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [editOrg, setEditOrg] = useState<OrgStats | null>(null);
+  const [editForm, setEditForm] = useState(EDIT_EMPTY);
+  const [saving, setSaving] = useState(false);
+  const [editError, setEditError] = useState("");
 
   async function fetchOrgs() {
     const res = await fetch("/api/superadmin/orgs");
@@ -34,6 +40,56 @@ export default function SuperAdminDashboard() {
   }
 
   useEffect(() => { fetchOrgs(); }, []);
+
+  function openEdit(org: OrgStats) {
+    setEditOrg(org);
+    setEditError("");
+    setEditForm({
+      name:        org.name,
+      slug:        org.slug,
+      logoUrl:     org.logoUrl ?? "",
+      address:     "",
+      phone:       "",
+      email:       "",
+      gstNumber:   "",
+      fssaiNumber: "",
+      tagline:     "",
+      footerText:  "",
+    });
+  }
+
+  async function handleEditSave(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editOrg) return;
+    setEditError("");
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/superadmin/orgs/${editOrg.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name:        editForm.name || undefined,
+          slug:        editForm.slug || undefined,
+          logoUrl:     editForm.logoUrl || null,
+          address:     editForm.address || null,
+          phone:       editForm.phone || null,
+          email:       editForm.email || null,
+          gstNumber:   editForm.gstNumber || null,
+          fssaiNumber: editForm.fssaiNumber || null,
+          tagline:     editForm.tagline || null,
+          footerText:  editForm.footerText || null,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to save");
+      setEditOrg(null);
+      fetchOrgs();
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : "Failed to save");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   async function toggleActive(org: OrgStats) {
     const res = await fetch(`/api/superadmin/orgs/${org.id}`, {
@@ -145,6 +201,12 @@ export default function SuperAdminDashboard() {
                         View Menu
                       </a>
                       <button
+                        onClick={() => openEdit(org)}
+                        className="text-xs font-medium bg-violet-900/60 hover:bg-violet-800 text-violet-300 px-3 py-1.5 rounded-lg transition-colors"
+                      >
+                        ✏️ Edit
+                      </button>
+                      <button
                         onClick={() => toggleActive(org)}
                         className={`text-xs font-medium px-3 py-1.5 rounded-lg transition-colors ${
                           org.active
@@ -230,6 +292,82 @@ export default function SuperAdminDashboard() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* ── Edit Org Modal ─────────────────────────────────────────────── */}
+      {editOrg && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setEditOrg(null)} />
+          <div className="relative bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-slate-900 border-b border-slate-700 px-6 py-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-white">Edit Organization</h2>
+                <p className="text-slate-400 text-sm">{editOrg.name}</p>
+              </div>
+              <button onClick={() => setEditOrg(null)} className="text-slate-400 hover:text-white text-2xl leading-none">×</button>
+            </div>
+
+            <form onSubmit={handleEditSave} className="px-6 py-5 space-y-4">
+              {editError && (
+                <div className="bg-red-900/50 border border-red-700 text-red-300 text-sm rounded-xl px-4 py-3">{editError}</div>
+              )}
+
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Basic Info</p>
+
+              {[
+                { label: "Hotel / Org Name *", key: "name", placeholder: "Kalinga Bites" },
+                { label: "URL Slug *", key: "slug", placeholder: "kalinga-bites", hint: `Customer URL: /${editForm.slug || "slug"}/menu/parcel` },
+                { label: "Logo URL", key: "logoUrl", placeholder: "https://..." },
+              ].map(({ label, key, placeholder, hint }) => (
+                <div key={key}>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">{label}</label>
+                  <input
+                    type="text"
+                    value={editForm[key as keyof typeof editForm]}
+                    onChange={(e) => setEditForm((f) => ({ ...f, [key]: e.target.value }))}
+                    placeholder={placeholder}
+                    className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 text-sm"
+                  />
+                  {hint && <p className="text-slate-500 text-xs mt-1">{hint}</p>}
+                </div>
+              ))}
+
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide pt-2">Business Details (used on receipts)</p>
+
+              {[
+                { label: "Address",      key: "address",     placeholder: "123 Main St, City" },
+                { label: "Phone",        key: "phone",       placeholder: "+91 98765 43210" },
+                { label: "Email",        key: "email",       placeholder: "contact@hotel.com" },
+                { label: "GST Number",   key: "gstNumber",   placeholder: "22AAAAA0000A1Z5" },
+                { label: "FSSAI Number", key: "fssaiNumber", placeholder: "10012345000123" },
+                { label: "Tagline",      key: "tagline",     placeholder: "Taste the tradition" },
+                { label: "Footer Text (on receipts)", key: "footerText", placeholder: "Thank you for dining with us!" },
+              ].map(({ label, key, placeholder }) => (
+                <div key={key}>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">{label}</label>
+                  <input
+                    type="text"
+                    value={editForm[key as keyof typeof editForm]}
+                    onChange={(e) => setEditForm((f) => ({ ...f, [key]: e.target.value }))}
+                    placeholder={placeholder}
+                    className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 text-sm"
+                  />
+                </div>
+              ))}
+
+              <div className="flex gap-3 pt-3">
+                <button type="submit" disabled={saving}
+                  className="flex-1 bg-violet-600 hover:bg-violet-700 disabled:bg-violet-900 text-white font-bold py-3 rounded-xl transition-colors">
+                  {saving ? "Saving…" : "Save Changes"}
+                </button>
+                <button type="button" onClick={() => setEditOrg(null)}
+                  className="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-200 font-medium py-3 rounded-xl">
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>
