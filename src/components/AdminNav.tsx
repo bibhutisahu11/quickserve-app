@@ -35,8 +35,17 @@ export default function AdminNav() {
 
   useEffect(() => {
     if (!session?.user) return;
-    const cached = session.user.orgName;
-    if (cached) { setOrgName(cached); return; }
+    // Use orgName from session if available
+    if (session.user.orgName) { setOrgName(session.user.orgName); return; }
+    // Fall back to formatting orgSlug (always present in JWT)
+    if (session.user.orgSlug) {
+      const fromSlug = session.user.orgSlug
+        .replace(/-/g, " ")
+        .replace(/\b\w/g, (c) => c.toUpperCase());
+      setOrgName(fromSlug);
+      return;
+    }
+    // Last resort: fetch from API
     fetch("/api/admin/org-settings")
       .then((r) => r.ok ? r.json() : null)
       .then((d) => { if (d?.name) setOrgName(d.name); })
