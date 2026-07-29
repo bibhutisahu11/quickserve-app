@@ -1,0 +1,3 @@
+ALTER TABLE "orders"
+  ADD COLUMN IF NOT EXISTS "email"    TEXT,
+  ADD COLUMN IF NOT EXISTS "birthday" TEXT;

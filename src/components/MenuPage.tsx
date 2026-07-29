@@ -65,15 +65,17 @@ export default function MenuPage({ menuItems, tableToken, tableName, orgSlug }: 
     if (item) addToCart(item);
   }
 
-  async function handlePlaceOrder(customerName: string, phone: string, notes: string, address: string) {
+  async function handlePlaceOrder(customerName: string, phone: string, notes: string, address: string, email: string, birthday: string) {
     const body = {
       type: tableToken ? "TABLE" : "PARCEL",
       tableToken: tableToken ?? undefined,
       orgSlug: orgSlug ?? undefined,
       customerName,
-      phone,
+      phone: phone || undefined,
+      email: email || undefined,
+      birthday: birthday || undefined,
       deliveryAddress: address || undefined,
-      notes,
+      notes: notes || undefined,
       items: cart.map((c) => ({ menuItemId: c.menuItemId, quantity: c.quantity })),
     };
 

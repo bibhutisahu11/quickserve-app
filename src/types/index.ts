@@ -43,6 +43,8 @@ export interface OrderData {
   table: TableData | null;
   customerName: string;
   phone: string | null;
+  email: string | null;
+  birthday: string | null;
   deliveryAddress: string | null;
   notes: string | null;
   status: OrderStatus;

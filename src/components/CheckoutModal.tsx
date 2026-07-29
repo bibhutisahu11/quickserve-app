@@ -2,13 +2,13 @@
 
 import { useState } from "react";
 import { CartItem } from "@/types";
-import { validatePhone } from "@/lib/validators";
+import { validatePhone, validateEmail } from "@/lib/validators";
 
 interface CheckoutModalProps {
   open: boolean;
   onClose: () => void;
   cart: CartItem[];
-  onPlaceOrder: (name: string, phone: string, notes: string, address: string) => Promise<void>;
+  onPlaceOrder: (name: string, phone: string, notes: string, address: string, email: string, birthday: string) => Promise<void>;
   isParcel: boolean;
 }
 
@@ -21,11 +21,14 @@ export default function CheckoutModal({
 }: CheckoutModalProps) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [birthday, setBirthday] = useState("");
   const [address, setAddress] = useState("");
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [phoneError, setPhoneError] = useState("");
+  const [emailError, setEmailError] = useState("");
 
   const total = cart.reduce((s, i) => s + i.price * i.quantity, 0);
 
@@ -35,10 +38,12 @@ export default function CheckoutModal({
     e.preventDefault();
     setError("");
     const pErr = phone ? validatePhone(phone) : null;
+    const eErr = email ? validateEmail(email) : null;
     if (pErr) { setPhoneError(pErr); return; }
+    if (eErr) { setEmailError(eErr); return; }
     setLoading(true);
     try {
-      await onPlaceOrder(name, phone, notes, address);
+      await onPlaceOrder(name, phone, notes, address, email, birthday);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Something went wrong");
       setLoading(false);
@@ -117,6 +122,44 @@ export default function CheckoutModal({
               placeholder="+91 98765 43210"
             />
             {phoneError && <p className="text-red-500 text-xs mt-1">{phoneError}</p>}
+          </div>
+
+          {/* ── Optional customer details ─────────────────────────────── */}
+          <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-4 space-y-4">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">🎁</span>
+              <p className="text-sm font-semibold text-amber-800">Get exclusive offers!</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                Email Address <span className="text-slate-400 text-xs">(optional)</span>
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => { setEmail(e.target.value); setEmailError(""); }}
+                onBlur={() => setEmailError(validateEmail(email) ?? "")}
+                className={`w-full border rounded-lg px-4 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white ${emailError ? "border-red-400" : "border-slate-300"}`}
+                placeholder="you@example.com"
+              />
+              {emailError && <p className="text-red-500 text-xs mt-1">{emailError}</p>}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                Your Birthday <span className="text-slate-400 text-xs">(optional)</span>
+              </label>
+              <input
+                type="date"
+                value={birthday}
+                onChange={(e) => setBirthday(e.target.value)}
+                className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
+              />
+              <p className="text-xs text-amber-700 mt-1.5 flex items-center gap-1">
+                🎂 We might call you for free sweets or get amazing discounts on your party order!
+              </p>
+            </div>
           </div>
 
           {isParcel && (

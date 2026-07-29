@@ -16,6 +16,8 @@ interface Customer {
   key: string;
   name: string;
   phone: string;
+  email?: string;
+  birthday?: string;
   totalSpent: number;
   orderCount: number;
   lastOrderAt: string;
@@ -25,12 +27,14 @@ interface Customer {
 
 function exportCustomersCsv(customers: Customer[]) {
   const rows = [
-    ["Name", "Phone", "Total Orders", "Total Spent (₹)", "Favourite Item", "Last Order Date"],
+    ["Name", "Phone", "Email", "Birthday", "Total Orders", "Total Spent (₹)", "Favourite Item", "Last Order Date"],
   ];
   for (const c of customers) {
     rows.push([
       c.name,
       c.phone,
+      c.email ?? "",
+      c.birthday ?? "",
       String(c.orderCount),
       c.totalSpent.toFixed(2),
       c.favouriteItem,
@@ -160,11 +164,21 @@ export default function CustomersDashboard() {
                     </td>
                     <td className="px-5 py-4 text-slate-600 text-sm">
                       {customer.phone ? (
-                        <a href={`tel:${customer.phone}`} className="hover:text-amber-600 transition-colors">
+                        <a href={`tel:${customer.phone}`} className="hover:text-amber-600 transition-colors block">
                           {customer.phone}
                         </a>
                       ) : (
                         <span className="text-slate-400">—</span>
+                      )}
+                      {customer.email && (
+                        <a href={`mailto:${customer.email}`} className="text-xs text-blue-500 hover:text-blue-700 block mt-0.5 truncate max-w-[160px]">
+                          {customer.email}
+                        </a>
+                      )}
+                      {customer.birthday && (
+                        <span className="text-xs text-pink-500 block mt-0.5">
+                          🎂 {new Date(customer.birthday).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+                        </span>
                       )}
                     </td>
                     <td className="px-5 py-4">

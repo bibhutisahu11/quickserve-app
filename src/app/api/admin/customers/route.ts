@@ -32,6 +32,8 @@ export async function GET(req: NextRequest) {
         id: true,
         customerName: true,
         phone: true,
+        email: true,
+        birthday: true,
         total: true,
         type: true,
         status: true,
@@ -48,6 +50,8 @@ export async function GET(req: NextRequest) {
         key: string;
         name: string;
         phone: string;
+        email: string;
+        birthday: string;
         totalSpent: number;
         orderCount: number;
         lastOrderAt: string;
@@ -67,12 +71,16 @@ export async function GET(req: NextRequest) {
           existing.lastOrderAt = order.createdAt.toISOString();
           existing.name = order.customerName;
         }
+        if (!existing.email && order.email) existing.email = order.email;
+        if (!existing.birthday && order.birthday) existing.birthday = order.birthday;
         existing.orders.push(order);
       } else {
         customerMap.set(key, {
           key,
           name: order.customerName,
           phone: order.phone ?? "",
+          email: order.email ?? "",
+          birthday: order.birthday ?? "",
           totalSpent: order.total,
           orderCount: 1,
           lastOrderAt: order.createdAt.toISOString(),
@@ -94,6 +102,8 @@ export async function GET(req: NextRequest) {
         key: c.key,
         name: c.name,
         phone: c.phone,
+        email: c.email,
+        birthday: c.birthday,
         totalSpent: c.totalSpent,
         orderCount: c.orderCount,
         lastOrderAt: c.lastOrderAt,
