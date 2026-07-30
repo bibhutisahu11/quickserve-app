@@ -36,27 +36,27 @@ export async function DELETE(
   try {
     const { id } = await params;
 
-    // Hard delete — cascade in the correct order to avoid FK constraint violations
-    await prisma.$transaction([
-      // 1. Stock logs (via inventory items — already cascade in schema but be explicit)
-      prisma.stockLog.deleteMany({ where: { item: { orgId: id } } }),
+    // Hard delete — sequential interactive transaction to avoid FK constraint violations
+    await prisma.$transaction(async (tx) => {
+      // 1. Stock logs (children of inventory items)
+      await tx.stockLog.deleteMany({ where: { item: { orgId: id } } });
       // 2. Inventory items
-      prisma.inventoryItem.deleteMany({ where: { orgId: id } }),
-      // 3. Order items (cascade from orders, but must go before orders)
-      prisma.orderItem.deleteMany({ where: { order: { orgId: id } } }),
+      await tx.inventoryItem.deleteMany({ where: { orgId: id } });
+      // 3. Order items (children of orders)
+      await tx.orderItem.deleteMany({ where: { order: { orgId: id } } });
       // 4. Orders
-      prisma.order.deleteMany({ where: { orgId: id } }),
+      await tx.order.deleteMany({ where: { orgId: id } });
       // 5. Expenses
-      prisma.expense.deleteMany({ where: { orgId: id } }),
+      await tx.expense.deleteMany({ where: { orgId: id } });
       // 6. Menu items
-      prisma.menuItem.deleteMany({ where: { orgId: id } }),
+      await tx.menuItem.deleteMany({ where: { orgId: id } });
       // 7. Tables
-      prisma.table.deleteMany({ where: { orgId: id } }),
+      await tx.table.deleteMany({ where: { orgId: id } });
       // 8. Admins
-      prisma.admin.deleteMany({ where: { orgId: id } }),
+      await tx.admin.deleteMany({ where: { orgId: id } });
       // 9. Finally delete the org itself
-      prisma.organization.delete({ where: { id } }),
-    ]);
+      await tx.organization.delete({ where: { id } });
+    });
 
     return NextResponse.json({ deleted: true });
   } catch (err) {
