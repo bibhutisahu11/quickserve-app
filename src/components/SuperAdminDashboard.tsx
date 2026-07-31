@@ -128,7 +128,7 @@ export default function SuperAdminDashboard() {
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-white">Organizations</h1>
+          <h1 className="text-3xl font-bold text-white">Organizations <span className="text-xs font-normal text-slate-500 ml-2">v2</span></h1>
           <p className="text-slate-400 mt-1">
             {orgs.length} org{orgs.length !== 1 ? "s" : ""} · ₹{totalRevenue.toLocaleString()} revenue · {totalOrders} orders · {totalCustomers} unique customers
           </p>
