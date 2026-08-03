@@ -49,7 +49,7 @@ export default function AdminNav({ orgName, orgLogo }: { orgName: string | null;
                 unoptimized
               />
             ) : (
-              <span className="text-xl font-black text-amber-400 tracking-tight">QT</span>
+              <span className="text-xl font-black text-amber-400 tracking-tight">OT</span>
             )}
             <div>
               <div className="font-bold text-base text-amber-400 leading-tight">
