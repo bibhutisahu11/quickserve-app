@@ -9,8 +9,8 @@ const geistSans = Geist({
 });
 
 export const metadata: Metadata = {
-  title: "QuickServe",
-  description: "QuickServe — Smart restaurant & hotel management. QR ordering, kitchen dashboard, inventory, expenses and more.",
+  title: "QuickTab",
+  description: "QuickTab — Smart restaurant & hotel management. QR ordering, kitchen dashboard, inventory, expenses and more.",
 };
 
 export default function RootLayout({

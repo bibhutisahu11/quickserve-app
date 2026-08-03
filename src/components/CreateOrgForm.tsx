@@ -106,7 +106,7 @@ export default function CreateOrgForm() {
             URL Slug * <span className="text-slate-500 font-normal">(used in customer menu URL)</span>
           </label>
           <div className="flex items-center gap-2">
-            <span className="text-slate-500 text-sm whitespace-nowrap">quickserve-app.vercel.app/</span>
+            <span className="text-slate-500 text-sm whitespace-nowrap">quicktab.vercel.app/</span>
             <input
               type="text"
               value={form.slug}

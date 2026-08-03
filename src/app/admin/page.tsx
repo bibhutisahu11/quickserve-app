@@ -103,7 +103,7 @@ export default function AdminLoginPage() {
           <div className="inline-flex items-center justify-center w-16 h-16 bg-amber-500 rounded-2xl mb-4">
             <span className="text-3xl">🍽️</span>
           </div>
-          <h1 className="text-3xl font-bold text-white">QuickServe</h1>
+          <h1 className="text-3xl font-bold text-white">QuickTab</h1>
           <p className="text-slate-400 mt-1">Sign in to manage your restaurant</p>
         </div>
         <Suspense fallback={<div className="bg-white rounded-2xl shadow-2xl p-8 text-center text-slate-400">Loading…</div>}>

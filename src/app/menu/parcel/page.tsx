@@ -11,7 +11,7 @@ export default function GenericParcelPage() {
           restaurant&apos;s unique menu link.
         </p>
         <p className="text-sm text-slate-400 bg-slate-50 rounded-lg px-4 py-3 font-mono">
-          https://quickserve-app.vercel.app/<span className="text-amber-600 font-bold">your-restaurant-slug</span>/menu/parcel
+          https://quicktab.vercel.app/<span className="text-amber-600 font-bold">your-restaurant-slug</span>/menu/parcel
         </p>
         <Link
           href="/admin"
