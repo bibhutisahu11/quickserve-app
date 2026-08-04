@@ -68,22 +68,35 @@ export async function POST(req: NextRequest) {
     const genAI = new GoogleGenerativeAI(geminiKey);
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
+    // Retry up to 3 times on rate-limit (429) with exponential back-off
     let raw = "";
-    try {
-      const result = await model.generateContent([
-        SCAN_PROMPT,
-        { inlineData: { mimeType, data: base64 } },
-      ]);
-      raw = result.response.text();
-    } catch (aiErr: unknown) {
-      const msg = aiErr instanceof Error ? aiErr.message : String(aiErr);
-      if (msg.includes("API_KEY") || msg.includes("401") || msg.toLowerCase().includes("api key")) {
-        return NextResponse.json({ error: "Invalid Gemini API key. Check GEMINI_API_KEY on Vercel." }, { status: 502 });
+    const MAX_ATTEMPTS = 3;
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      try {
+        const result = await model.generateContent([
+          SCAN_PROMPT,
+          { inlineData: { mimeType, data: base64 } },
+        ]);
+        raw = result.response.text();
+        break; // success
+      } catch (aiErr: unknown) {
+        const msg = aiErr instanceof Error ? aiErr.message : String(aiErr);
+        const isRateLimit = msg.includes("429") || msg.toLowerCase().includes("quota") || msg.toLowerCase().includes("rate");
+
+        if (isRateLimit && attempt < MAX_ATTEMPTS) {
+          // Wait 15s, then 30s before next attempt
+          await new Promise((r) => setTimeout(r, attempt * 15_000));
+          continue;
+        }
+
+        if (msg.includes("API_KEY") || msg.includes("401") || msg.toLowerCase().includes("api key")) {
+          return NextResponse.json({ error: "Invalid Gemini API key. Check GEMINI_API_KEY on Vercel." }, { status: 502 });
+        }
+        if (isRateLimit) {
+          return NextResponse.json({ error: "Gemini is busy right now. Please try again in 1 minute." }, { status: 429 });
+        }
+        return NextResponse.json({ error: `AI error: ${msg}` }, { status: 502 });
       }
-      if (msg.includes("429") || msg.toLowerCase().includes("quota") || msg.toLowerCase().includes("rate")) {
-        return NextResponse.json({ error: "Gemini rate limit hit. Wait a minute and try again." }, { status: 502 });
-      }
-      return NextResponse.json({ error: `AI error: ${msg}` }, { status: 502 });
     }
 
     // Strip markdown code fences if present
