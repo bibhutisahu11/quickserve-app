@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getOrgContext } from "@/lib/orgGuard";
-import OpenAI from "openai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// Extend Vercel serverless timeout — GPT-4o vision can take 20-40s
+// Extend Vercel serverless timeout — vision AI can take 20-40s
 export const maxDuration = 60;
 
 export interface ScannedMenuItem {
@@ -29,7 +29,7 @@ Return a JSON object with this exact structure:
 Rules:
 - Extract every visible item (food, drinks, desserts, combos, etc.)
 - For "price": extract the numeric value only (no ₹ or currency symbols). If price is not visible, use 0.
-- For "category": use the section headers from the menu directly (e.g. "Odia Breakfast Specials", "South Indian Favourites", "Paratha Corner", "Evening Snacks", etc.). If no section is visible, group intelligently.
+- For "category": use the section headers from the menu directly (e.g. "Odia Breakfast Specials", "South Indian Favourites", "Paratha Corner", "Evening Snacks", etc.). If no section header is visible, group intelligently.
 - Clean up item names (proper casing, no stray characters)
 - If multiple prices exist for the same item (half/full), create separate entries like "Paneer Tikka (Half)" and "Paneer Tikka (Full)"
 - Return ONLY valid JSON, nothing else.`;
@@ -38,10 +38,13 @@ export async function POST(req: NextRequest) {
   const ctx = await getOrgContext(req);
   if (ctx.error) return ctx.error;
 
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
+  const geminiKey = process.env.GEMINI_API_KEY;
+  if (!geminiKey) {
     return NextResponse.json(
-      { error: "OPENAI_API_KEY is not configured on Vercel. Go to Vercel → Project → Settings → Environment Variables and add it." },
+      {
+        error:
+          "GEMINI_API_KEY is not configured. Get a free key at aistudio.google.com/app/apikey and add it to Vercel → Settings → Environment Variables.",
+      },
       { status: 503 }
     );
   }
@@ -54,60 +57,39 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No image provided" }, { status: 400 });
     }
 
-    const maxMB = 20;
-    if (file.size > maxMB * 1024 * 1024) {
-      return NextResponse.json(
-        { error: `Image too large. Max ${maxMB}MB allowed.` },
-        { status: 400 }
-      );
+    if (file.size > 20 * 1024 * 1024) {
+      return NextResponse.json({ error: "Image too large. Max 20 MB allowed." }, { status: 400 });
     }
 
     const buffer = await file.arrayBuffer();
     const base64 = Buffer.from(buffer).toString("base64");
-    const mimeType = file.type || "image/jpeg";
+    const mimeType = (file.type || "image/jpeg") as "image/jpeg" | "image/png" | "image/webp" | "image/gif";
 
-    const openai = new OpenAI({ apiKey });
+    const genAI = new GoogleGenerativeAI(geminiKey);
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
     let raw = "";
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        max_tokens: 4096,
-        messages: [
-          {
-            role: "user",
-            content: [
-              { type: "text", text: SCAN_PROMPT },
-              {
-                type: "image_url",
-                image_url: { url: `data:${mimeType};base64,${base64}`, detail: "high" },
-              },
-            ],
-          },
-        ],
-      });
-      raw = response.choices[0]?.message?.content ?? "";
-    } catch (openaiErr: unknown) {
-      // Surface the actual OpenAI error to help with debugging
-      const msg =
-        openaiErr instanceof Error ? openaiErr.message : String(openaiErr);
-
-      if (msg.includes("401") || msg.toLowerCase().includes("authentication") || msg.toLowerCase().includes("api key")) {
-        return NextResponse.json({ error: "Invalid OpenAI API key. Check your OPENAI_API_KEY environment variable on Vercel." }, { status: 502 });
+      const result = await model.generateContent([
+        SCAN_PROMPT,
+        { inlineData: { mimeType, data: base64 } },
+      ]);
+      raw = result.response.text();
+    } catch (aiErr: unknown) {
+      const msg = aiErr instanceof Error ? aiErr.message : String(aiErr);
+      if (msg.includes("API_KEY") || msg.includes("401") || msg.toLowerCase().includes("api key")) {
+        return NextResponse.json({ error: "Invalid Gemini API key. Check GEMINI_API_KEY on Vercel." }, { status: 502 });
       }
-      if (msg.includes("429") || msg.toLowerCase().includes("quota") || msg.toLowerCase().includes("rate limit")) {
-        return NextResponse.json({ error: "OpenAI quota exceeded or rate limited. Check your billing at platform.openai.com." }, { status: 502 });
-      }
-      if (msg.toLowerCase().includes("timeout") || msg.toLowerCase().includes("timed out")) {
-        return NextResponse.json({ error: "AI scan timed out. Try a smaller or lower-resolution image." }, { status: 504 });
+      if (msg.includes("429") || msg.toLowerCase().includes("quota") || msg.toLowerCase().includes("rate")) {
+        return NextResponse.json({ error: "Gemini rate limit hit. Wait a minute and try again." }, { status: 502 });
       }
       return NextResponse.json({ error: `AI error: ${msg}` }, { status: 502 });
     }
 
-    // Extract JSON even if the model wraps it in markdown code fences
+    // Strip markdown code fences if present
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      console.error("GPT-4o raw response:", raw);
+      console.error("Gemini raw response:", raw);
       return NextResponse.json(
         { error: "Could not parse AI response. Try a clearer image." },
         { status: 422 }
@@ -120,7 +102,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unexpected AI response format" }, { status: 422 });
     }
 
-    // Normalise: ensure price is a number, trim strings
     const items: ScannedMenuItem[] = parsed.items.map((item) => ({
       name: String(item.name ?? "").trim(),
       description: String(item.description ?? "").trim(),
