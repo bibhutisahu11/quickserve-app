@@ -8,6 +8,7 @@ import { exportOrdersToCsv } from "@/lib/exportCsv";
 import { printOrder, printAllOrders } from "@/lib/printOrder";
 
 const STATUS_LABELS: Record<OrderStatus, string> = {
+  PAYMENT_PENDING: "Awaiting Payment",
   PENDING: "New Orders",
   PREPARING: "Preparing",
   READY: "Ready to Serve",
@@ -16,6 +17,7 @@ const STATUS_LABELS: Record<OrderStatus, string> = {
 };
 
 const STATUS_COLORS: Record<OrderStatus, { bg: string; border: string; badge: string }> = {
+  PAYMENT_PENDING: { bg: "bg-purple-50", border: "border-purple-200", badge: "bg-purple-100 text-purple-700" },
   PENDING: { bg: "bg-amber-50", border: "border-amber-200", badge: "bg-amber-100 text-amber-700" },
   PREPARING: { bg: "bg-blue-50", border: "border-blue-200", badge: "bg-blue-100 text-blue-700" },
   READY: { bg: "bg-green-50", border: "border-green-200", badge: "bg-green-100 text-green-700" },
