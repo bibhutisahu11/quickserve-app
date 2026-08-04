@@ -116,14 +116,24 @@ export default function MenuManager() {
   }
 
   async function toggleAvailable(item: MenuItemData) {
-    const res = await fetch(`/api/menu/${item.id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ available: !item.available }),
-    });
-    if (res.ok) {
-      const updated = await res.json();
-      setItems((prev) => prev.map((i) => (i.id === updated.id ? updated : i)));
+    // Optimistic update
+    const newVal = !item.available;
+    setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, available: newVal } : i)));
+    try {
+      const res = await fetch(`/api/menu/${item.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ available: newVal }),
+      });
+      if (!res.ok) {
+        // Revert on failure
+        setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, available: item.available } : i)));
+        const data = await res.json().catch(() => ({}));
+        alert(data.error ?? "Failed to update availability.");
+      }
+    } catch {
+      setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, available: item.available } : i)));
+      alert("Network error. Please try again.");
     }
   }
 
@@ -176,16 +186,22 @@ export default function MenuManager() {
     if (updates.length === 0) return;
     setSavingAvail(true);
     try {
-      await fetch("/api/menu", {
+      const res = await fetch("/api/menu", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ updates }),
       });
-      // Apply changes locally
-      setItems((prev) =>
-        prev.map((i) => pendingAvail[i.id] !== undefined ? { ...i, available: pendingAvail[i.id] } : i)
-      );
-      setPendingAvail({});
+      if (res.ok) {
+        setItems((prev) =>
+          prev.map((i) => pendingAvail[i.id] !== undefined ? { ...i, available: pendingAvail[i.id] } : i)
+        );
+        setPendingAvail({});
+      } else {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error ?? "Failed to save availability. Please try again.");
+      }
+    } catch {
+      alert("Network error. Please try again.");
     } finally {
       setSavingAvail(false);
     }
