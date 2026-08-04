@@ -98,11 +98,21 @@ export default function MenuManager() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Delete this menu item?")) return;
+    if (!confirm("Delete this menu item? This cannot be undone.")) return;
     setDeletingId(id);
-    const res = await fetch(`/api/menu/${id}`, { method: "DELETE" });
-    if (res.ok) setItems((prev) => prev.filter((i) => i.id !== id));
-    setDeletingId(null);
+    try {
+      const res = await fetch(`/api/menu/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        setItems((prev) => prev.filter((i) => i.id !== id));
+      } else {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error ?? "Failed to delete item. Please try again.");
+      }
+    } catch {
+      alert("Network error. Please try again.");
+    } finally {
+      setDeletingId(null);
+    }
   }
 
   async function toggleAvailable(item: MenuItemData) {
