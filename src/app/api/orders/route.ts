@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { type, tableToken, orgSlug, customerName, phone, email, birthday, deliveryAddress, notes, items } = body;
+    const { type, tableToken, orgSlug, customerName, phone, email, birthday, deliveryAddress, notes, items, upiUtr, paymentScreenshot } = body;
 
     if (!type || !customerName || !items?.length) {
       return NextResponse.json(
@@ -42,6 +42,7 @@ export async function POST(req: NextRequest) {
     // Resolve org and table
     let tableId: string | null = null;
     let orgId: string | null = null;
+    let orgUpiId: string | null = null;
 
     if (type === "TABLE") {
       if (!tableToken) {
@@ -55,10 +56,20 @@ export async function POST(req: NextRequest) {
       if (!table.active) return NextResponse.json({ error: "Table is not active" }, { status: 400 });
       tableId = table.id;
       orgId = table.orgId ?? null;
+      orgUpiId = table.org?.upiId ?? null;
     } else if (orgSlug) {
-      // Parcel orders carry orgSlug so we can scope correctly
       const org = await prisma.organization.findUnique({ where: { slug: orgSlug } });
-      if (org) orgId = org.id;
+      if (org) { orgId = org.id; orgUpiId = org.upiId ?? null; }
+    }
+
+    // If org requires UPI payment, validate UTR + screenshot
+    if (orgUpiId) {
+      if (!upiUtr || upiUtr.trim().length < 6) {
+        return NextResponse.json({ error: "Valid UTR / Transaction ID is required for payment" }, { status: 400 });
+      }
+      if (!paymentScreenshot) {
+        return NextResponse.json({ error: "Payment screenshot is required" }, { status: 400 });
+      }
     }
 
     // Validate menu items scoped to org
@@ -100,6 +111,10 @@ export async function POST(req: NextRequest) {
         deliveryAddress: deliveryAddress ?? null,
         notes: notes ?? null,
         total,
+        // If org has UPI, order waits for admin verification before entering the kitchen queue
+        status: orgUpiId ? "PAYMENT_PENDING" : "PENDING",
+        upiUtr: upiUtr ?? null,
+        paymentScreenshot: paymentScreenshot ?? null,
         items: { create: orderItemsData },
       },
       include: { items: true, table: true },

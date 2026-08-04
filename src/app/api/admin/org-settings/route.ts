@@ -26,7 +26,7 @@ export async function PATCH(req: NextRequest) {
   }
 
   const body = await req.json();
-  const allowed = ["name", "logoUrl", "address", "phone", "email", "gstNumber", "fssaiNumber", "tagline", "footerText"];
+  const allowed = ["name", "logoUrl", "address", "phone", "email", "gstNumber", "fssaiNumber", "tagline", "footerText", "upiId"];
   const data: Record<string, string | null> = {};
   for (const key of allowed) {
     if (key in body) data[key] = body[key] ?? null;

@@ -1,5 +1,5 @@
 export type OrderType = "TABLE" | "PARCEL";
-export type OrderStatus = "PENDING" | "PREPARING" | "READY" | "DONE" | "CANCELLED";
+export type OrderStatus = "PAYMENT_PENDING" | "PENDING" | "PREPARING" | "READY" | "DONE" | "CANCELLED";
 export type UserRole = "SUPER_ADMIN" | "HOTEL_ADMIN" | "MANAGER" | "WAITER" | "KITCHEN";
 
 export interface CartItem {
@@ -50,6 +50,11 @@ export interface OrderData {
   status: OrderStatus;
   total: number;
   paymentId: string | null;
+  upiUtr: string | null;
+  paymentScreenshot: string | null;
+  paymentVerified: boolean;
+  nudgeCount: number;
+  nudgedAt: string | null;
   items: OrderItemData[];
   createdAt: string;
   updatedAt: string;
@@ -67,6 +72,7 @@ export interface OrgSettings {
   fssaiNumber: string | null;
   tagline: string | null;
   footerText: string | null;
+  upiId: string | null;
   active: boolean;
 }
 

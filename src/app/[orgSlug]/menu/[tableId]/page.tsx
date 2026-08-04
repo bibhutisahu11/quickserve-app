@@ -33,6 +33,7 @@ export default async function TableMenuPage({ params }: Props) {
       tableName={table.name}
       orgSlug={orgSlug}
       orgName={org.name}
+      orgUpiId={org.upiId ?? null}
     />
   );
 }

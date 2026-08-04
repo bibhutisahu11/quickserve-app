@@ -8,26 +8,32 @@ const STATUS_CONFIG: Record<
   OrderStatus,
   { label: string; icon: string; color: string; step: number }
 > = {
-  PENDING: { label: "Order Received", icon: "⏳", color: "text-amber-500", step: 1 },
-  PREPARING: { label: "Being Prepared", icon: "👨‍🍳", color: "text-blue-500", step: 2 },
-  READY: { label: "Ready!", icon: "✅", color: "text-green-500", step: 3 },
-  DONE: { label: "Completed", icon: "🎉", color: "text-green-600", step: 4 },
-  CANCELLED: { label: "Cancelled", icon: "❌", color: "text-red-500", step: 0 },
+  PAYMENT_PENDING: { label: "Awaiting Payment Verification", icon: "🔐", color: "text-purple-600", step: 0 },
+  PENDING:   { label: "Order Received",  icon: "⏳", color: "text-amber-500", step: 1 },
+  PREPARING: { label: "Being Prepared",  icon: "👨‍🍳", color: "text-blue-500",  step: 2 },
+  READY:     { label: "Ready!",          icon: "✅", color: "text-green-500", step: 3 },
+  DONE:      { label: "Completed",       icon: "🎉", color: "text-green-600", step: 4 },
+  CANCELLED: { label: "Cancelled",       icon: "❌", color: "text-red-500",   step: -1 },
 };
 
 const STEPS: { key: OrderStatus; label: string; icon: string }[] = [
-  { key: "PENDING", label: "Received", icon: "📋" },
+  { key: "PENDING",   label: "Received", icon: "📋" },
   { key: "PREPARING", label: "Preparing", icon: "🍳" },
-  { key: "READY", label: "Ready", icon: "✅" },
-  { key: "DONE", label: "Done", icon: "🎉" },
+  { key: "READY",     label: "Ready",    icon: "✅" },
+  { key: "DONE",      label: "Done",     icon: "🎉" },
 ];
 
 export default function OrderStatusPage() {
   const { orderId } = useParams<{ orderId: string }>();
-  const [order, setOrder] = useState<OrderData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [order, setOrder]       = useState<OrderData | null>(null);
+  const [loading, setLoading]   = useState(true);
+  const [error, setError]       = useState("");
   const [etaLabel, setEtaLabel] = useState<string | null>(null);
+
+  // Nudge state
+  const [nudging, setNudging]       = useState(false);
+  const [nudgeMsg, setNudgeMsg]     = useState("");
+  const [nudgeCooldown, setNudgeCooldown] = useState(0); // seconds remaining
 
   async function fetchOrder() {
     try {
@@ -50,6 +56,33 @@ export default function OrderStatusPage() {
       setEtaLabel(data.done ? null : data.label);
     } catch { /* ignore */ }
   }
+
+  async function handleNudge() {
+    setNudging(true);
+    setNudgeMsg("");
+    try {
+      const res = await fetch(`/api/orders/${orderId}/nudge`, { method: "POST" });
+      const data = await res.json();
+      if (res.ok) {
+        setNudgeMsg("✅ Admin has been notified!");
+        setNudgeCooldown(60);
+        setOrder((prev) => prev ? { ...prev, nudgeCount: data.nudgeCount } : prev);
+      } else if (res.status === 429) {
+        setNudgeMsg(data.error);
+      } else {
+        setNudgeMsg("Could not send nudge. Try again.");
+      }
+    } finally {
+      setNudging(false);
+    }
+  }
+
+  // Countdown timer for nudge cooldown
+  useEffect(() => {
+    if (nudgeCooldown <= 0) return;
+    const t = setInterval(() => setNudgeCooldown((n) => Math.max(0, n - 1)), 1000);
+    return () => clearInterval(t);
+  }, [nudgeCooldown]);
 
   useEffect(() => {
     fetchOrder();
@@ -88,6 +121,7 @@ export default function OrderStatusPage() {
   return (
     <div className="min-h-screen bg-slate-50 py-8 px-4">
       <div className="max-w-md mx-auto space-y-6">
+
         {/* Header */}
         <div className="text-center">
           <div className="text-6xl mb-3 animate-bounce">{statusInfo.icon}</div>
@@ -96,6 +130,55 @@ export default function OrderStatusPage() {
             Order #{order.id.slice(-8).toUpperCase()}
           </p>
         </div>
+
+        {/* ── Payment pending card ── */}
+        {order.status === "PAYMENT_PENDING" && (
+          <div className="bg-purple-50 border border-purple-200 rounded-2xl p-5 space-y-4">
+            <div className="flex items-start gap-3">
+              <span className="text-2xl">🔐</span>
+              <div>
+                <p className="font-bold text-purple-800">Payment under review</p>
+                <p className="text-purple-600 text-sm mt-0.5">
+                  The admin is verifying your UPI payment. Your order will be confirmed shortly.
+                </p>
+              </div>
+            </div>
+
+            {order.upiUtr && (
+              <div className="bg-white rounded-xl border border-purple-100 px-4 py-3 text-sm">
+                <span className="text-slate-500">UTR: </span>
+                <span className="font-mono font-bold text-slate-800">{order.upiUtr}</span>
+              </div>
+            )}
+
+            {/* Nudge button */}
+            <div className="space-y-2">
+              <button
+                onClick={handleNudge}
+                disabled={nudging || nudgeCooldown > 0}
+                className="w-full flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-300 text-white font-semibold py-3 rounded-xl transition-colors text-sm"
+              >
+                {nudging ? (
+                  "Sending..."
+                ) : nudgeCooldown > 0 ? (
+                  `⏳ Wait ${nudgeCooldown}s to nudge again`
+                ) : (
+                  <>🔔 Nudge Admin to verify payment</>
+                )}
+              </button>
+              {nudgeMsg && (
+                <p className={`text-center text-sm font-medium ${nudgeMsg.startsWith("✅") ? "text-green-600" : "text-orange-600"}`}>
+                  {nudgeMsg}
+                </p>
+              )}
+              {order.nudgeCount > 0 && (
+                <p className="text-center text-xs text-slate-400">
+                  You&apos;ve nudged {order.nudgeCount} time{order.nudgeCount !== 1 ? "s" : ""}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* ETA banner */}
         {etaLabel && (order.status === "PENDING" || order.status === "PREPARING") && (
@@ -111,8 +194,8 @@ export default function OrderStatusPage() {
           </div>
         )}
 
-        {/* Progress bar */}
-        {order.status !== "CANCELLED" && (
+        {/* Progress bar (only once payment is verified / confirmed) */}
+        {order.status !== "CANCELLED" && order.status !== "PAYMENT_PENDING" && (
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
             <div className="flex items-center justify-between">
               {STEPS.map((step, idx) => {
@@ -174,12 +257,8 @@ export default function OrderStatusPage() {
           <div className="space-y-2 mb-4">
             {order.items.map((item) => (
               <div key={item.id} className="flex justify-between text-sm">
-                <span className="text-slate-600">
-                  {item.name} × {item.quantity}
-                </span>
-                <span className="font-medium text-slate-800">
-                  ₹{(item.price * item.quantity).toFixed(2)}
-                </span>
+                <span className="text-slate-600">{item.name} × {item.quantity}</span>
+                <span className="font-medium text-slate-800">₹{(item.price * item.quantity).toFixed(2)}</span>
               </div>
             ))}
           </div>

@@ -19,5 +19,5 @@ export default async function ParcelMenuPage({ params }: Props) {
     orderBy: [{ category: "asc" }, { sortOrder: "asc" }],
   });
 
-  return <MenuPage menuItems={menuItems} orgSlug={orgSlug} orgName={org.name} />;
+  return <MenuPage menuItems={menuItems} orgSlug={orgSlug} orgName={org.name} orgUpiId={org.upiId ?? null} />;
 }

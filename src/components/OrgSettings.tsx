@@ -24,6 +24,7 @@ const FIELDS: Field[] = [
   { key: "gstNumber",   label: "GST Number",            placeholder: "22AAAAA0000A1Z5", hint: "Optional — printed on receipts" },
   { key: "fssaiNumber", label: "FSSAI Licence No.",     placeholder: "10020011000013", hint: "Optional — printed on receipts" },
   { key: "footerText",  label: "Receipt Footer",        placeholder: "Thank you for dining with us!", hint: "Shown at the bottom of every receipt" },
+  { key: "upiId",       label: "UPI ID",                placeholder: "yourname@upi or yourname@bank", hint: "Customers will see this to pay before their order is confirmed" },
 ];
 
 export default function OrgSettings() {

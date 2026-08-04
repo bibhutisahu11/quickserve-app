@@ -13,6 +13,7 @@ interface MenuPageProps {
   tableName?: string;
   orgSlug?: string;
   orgName?: string;
+  orgUpiId?: string | null;
 }
 
 // Map hour ranges to suggested category keywords and greeting info
@@ -32,7 +33,7 @@ function suggestedCategory(categories: string[], keywords: string[]): string | n
   return null;
 }
 
-export default function MenuPage({ menuItems, tableToken, tableName, orgSlug, orgName }: MenuPageProps) {
+export default function MenuPage({ menuItems, tableToken, tableName, orgSlug, orgName, orgUpiId }: MenuPageProps) {
   const router = useRouter();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [cartOpen, setCartOpen] = useState(false);
@@ -103,7 +104,16 @@ export default function MenuPage({ menuItems, tableToken, tableName, orgSlug, or
     if (item) addToCart(item);
   }
 
-  async function handlePlaceOrder(customerName: string, phone: string, notes: string, address: string, email: string, birthday: string) {
+  async function handlePlaceOrder(
+    customerName: string,
+    phone: string,
+    notes: string,
+    address: string,
+    email: string,
+    birthday: string,
+    upiUtr?: string,
+    paymentScreenshot?: string,
+  ) {
     const body = {
       type: tableToken ? "TABLE" : "PARCEL",
       tableToken: tableToken ?? undefined,
@@ -114,6 +124,8 @@ export default function MenuPage({ menuItems, tableToken, tableName, orgSlug, or
       birthday: birthday || undefined,
       deliveryAddress: address || undefined,
       notes: notes || undefined,
+      upiUtr: upiUtr || undefined,
+      paymentScreenshot: paymentScreenshot || undefined,
       items: cart.map((c) => ({ menuItemId: c.menuItemId, quantity: c.quantity })),
     };
 
@@ -277,6 +289,7 @@ export default function MenuPage({ menuItems, tableToken, tableName, orgSlug, or
         cart={cart}
         onPlaceOrder={handlePlaceOrder}
         isParcel={!tableToken}
+        orgUpiId={orgUpiId ?? null}
       />
     </div>
   );

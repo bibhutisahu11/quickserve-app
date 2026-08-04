@@ -6,6 +6,7 @@ import { printOrder } from "@/lib/printOrder";
 import { estimateWaitMins, formatWait, getOrderUrgency, overdueByMins } from "@/lib/waitingTime";
 
 const STATUS_COLORS: Record<string, { bg: string; border: string; badge: string }> = {
+  PAYMENT_PENDING: { bg: "bg-purple-50", border: "border-purple-200", badge: "bg-purple-100 text-purple-700" },
   PENDING: { bg: "bg-amber-50", border: "border-amber-200", badge: "bg-amber-100 text-amber-700" },
   PREPARING: { bg: "bg-blue-50", border: "border-blue-200", badge: "bg-blue-100 text-blue-700" },
   READY: { bg: "bg-green-50", border: "border-green-200", badge: "bg-green-100 text-green-700" },
@@ -14,6 +15,7 @@ const STATUS_COLORS: Record<string, { bg: string; border: string; badge: string 
 };
 
 const STATUS_LABELS: Record<OrderStatus, string> = {
+  PAYMENT_PENDING: "Awaiting Payment Verification",
   PENDING: "Pending",
   PREPARING: "Kitchen is preparing",
   READY: "Ready to serve",
@@ -25,10 +27,11 @@ export default function WaiterDashboard() {
   const [orders, setOrders] = useState<OrderData[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
-  const [filter, setFilter] = useState<"ACTIVE" | "ALL">("ACTIVE");
+  const [filter, setFilter] = useState<"PAYMENT_PENDING" | "ACTIVE" | "ALL">("ACTIVE");
   const [orgSettings, setOrgSettings] = useState<OrgSettings | null>(null);
   const [categoryMap, setCategoryMap] = useState<Record<string, string>>({});
   const [tick, setTick] = useState(0);
+  const [expandedScreenshot, setExpandedScreenshot] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/admin/org-settings")
@@ -76,10 +79,31 @@ export default function WaiterDashboard() {
     }
   }
 
+  async function verifyPayment(orderId: string, action: "ACCEPT" | "REJECT") {
+    setUpdatingId(orderId);
+    try {
+      const res = await fetch(`/api/orders/${orderId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ paymentAction: action }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setOrders((prev) => prev.map((o) => (o.id === updated.id ? updated : o)));
+      }
+    } finally {
+      setUpdatingId(null);
+    }
+  }
+
+  const pendingPaymentOrders = orders.filter((o) => o.status === "PAYMENT_PENDING");
+
   const displayed = orders.filter((o) =>
-    filter === "ACTIVE"
+    filter === "PAYMENT_PENDING"
+      ? o.status === "PAYMENT_PENDING"
+      : filter === "ACTIVE"
       ? ["PENDING", "PREPARING", "READY"].includes(o.status)
-      : true
+      : o.status !== "PAYMENT_PENDING"
   );
 
   const readyCount = orders.filter((o) => o.status === "READY").length;
@@ -170,7 +194,22 @@ export default function WaiterDashboard() {
         );
       })()}
 
-      <div className="flex gap-2 mb-5">
+      <div className="flex gap-2 mb-5 flex-wrap">
+        <button
+          onClick={() => setFilter("PAYMENT_PENDING")}
+          className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+            filter === "PAYMENT_PENDING"
+              ? "bg-purple-600 text-white"
+              : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
+          }`}
+        >
+          🔐 Pending Payment
+          {pendingPaymentOrders.length > 0 && (
+            <span className={`text-xs font-bold rounded-full px-1.5 py-0.5 min-w-[20px] text-center ${filter === "PAYMENT_PENDING" ? "bg-white text-purple-600" : "bg-purple-600 text-white"}`}>
+              {pendingPaymentOrders.length}
+            </span>
+          )}
+        </button>
         {(["ACTIVE", "ALL"] as const).map((f) => (
           <button
             key={f}
@@ -235,6 +274,58 @@ export default function WaiterDashboard() {
                   </div>
                 )}
 
+                {/* Payment verification section */}
+                {order.status === "PAYMENT_PENDING" && (
+                  <div className="mb-3 space-y-2">
+                    {/* UTR */}
+                    {order.upiUtr && (
+                      <div className="bg-white border border-purple-200 rounded-lg px-3 py-2 flex items-center gap-2">
+                        <span className="text-xs text-slate-500 font-medium">UTR:</span>
+                        <span className="font-mono font-bold text-slate-800 text-sm flex-1">{order.upiUtr}</span>
+                        {order.nudgeCount > 0 && (
+                          <span className="flex items-center gap-1 text-xs bg-orange-100 text-orange-700 font-bold px-2 py-0.5 rounded-full">
+                            🔔 {order.nudgeCount}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    {/* Screenshot thumbnail */}
+                    {order.paymentScreenshot && (
+                      <button
+                        onClick={() => setExpandedScreenshot(order.paymentScreenshot)}
+                        className="w-full rounded-lg overflow-hidden border border-purple-200 hover:border-purple-400 transition-colors relative"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={order.paymentScreenshot}
+                          alt="Payment screenshot"
+                          className="w-full max-h-32 object-cover"
+                        />
+                        <div className="absolute inset-0 bg-black/10 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+                          <span className="bg-black/60 text-white text-xs font-bold px-3 py-1 rounded-full">Tap to enlarge</span>
+                        </div>
+                      </button>
+                    )}
+                    {/* Accept / Reject */}
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => verifyPayment(order.id, "ACCEPT")}
+                        disabled={isUpdating}
+                        className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-green-300 text-white font-bold py-2.5 rounded-lg text-sm transition-colors"
+                      >
+                        {isUpdating ? "..." : "✅ Accept & Confirm Order"}
+                      </button>
+                      <button
+                        onClick={() => verifyPayment(order.id, "REJECT")}
+                        disabled={isUpdating}
+                        className="flex-1 bg-red-500 hover:bg-red-600 disabled:bg-red-300 text-white font-bold py-2.5 rounded-lg text-sm transition-colors"
+                      >
+                        {isUpdating ? "..." : "❌ Reject"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-slate-800">₹{order.total.toFixed(0)}</span>
                   <div className="flex gap-2 items-center">
@@ -268,6 +359,29 @@ export default function WaiterDashboard() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Screenshot lightbox */}
+      {expandedScreenshot && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
+          onClick={() => setExpandedScreenshot(null)}
+        >
+          <div className="relative max-w-lg w-full">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={expandedScreenshot}
+              alt="Payment screenshot"
+              className="w-full rounded-2xl shadow-2xl"
+            />
+            <button
+              onClick={() => setExpandedScreenshot(null)}
+              className="absolute -top-3 -right-3 w-8 h-8 bg-white rounded-full flex items-center justify-center text-slate-700 font-bold shadow-lg"
+            >
+              ✕
+            </button>
+          </div>
         </div>
       )}
     </div>

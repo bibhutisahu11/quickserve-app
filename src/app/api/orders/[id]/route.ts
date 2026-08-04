@@ -31,14 +31,38 @@ export async function PATCH(
 
   try {
     const { id } = await params;
-    const { status } = await req.json();
+    const body = await req.json();
+    const { status, paymentAction } = body;
 
+    // ── Payment verification (admin only) ──────────────────────────
+    // paymentAction: "ACCEPT" → move to PENDING + mark verified
+    //                "REJECT" → move to CANCELLED
+    if (paymentAction) {
+      if (!["HOTEL_ADMIN", "MANAGER", "SUPER_ADMIN"].includes(role)) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+      const order = await prisma.order.findUnique({ where: { id } });
+      if (!order) return NextResponse.json({ error: "Order not found" }, { status: 404 });
+      if (order.status !== "PAYMENT_PENDING") {
+        return NextResponse.json({ error: "Order is not awaiting payment verification" }, { status: 400 });
+      }
+      const updated = await prisma.order.update({
+        where: { id, ...(ctx.orgId ? { orgId: ctx.orgId } : {}) },
+        data: {
+          status: paymentAction === "ACCEPT" ? "PENDING" : "CANCELLED",
+          paymentVerified: paymentAction === "ACCEPT",
+        },
+        include: { items: true, table: true },
+      });
+      return NextResponse.json(updated);
+    }
+
+    // ── Regular status update ──────────────────────────────────────
     const validStatuses = ["PENDING", "PREPARING", "READY", "DONE", "CANCELLED"];
     if (!validStatuses.includes(status)) {
       return NextResponse.json({ error: "Invalid status" }, { status: 400 });
     }
 
-    // Role-based transition guard
     const order = await prisma.order.findUnique({ where: { id } });
     if (!order) return NextResponse.json({ error: "Order not found" }, { status: 404 });
 
