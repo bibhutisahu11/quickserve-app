@@ -32,6 +32,7 @@ export default function WaiterDashboard() {
   const [categoryMap, setCategoryMap] = useState<Record<string, string>>({});
   const [tick, setTick] = useState(0);
   const [expandedScreenshot, setExpandedScreenshot] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     fetch("/api/admin/org-settings")
@@ -98,13 +99,26 @@ export default function WaiterDashboard() {
 
   const pendingPaymentOrders = orders.filter((o) => o.status === "PAYMENT_PENDING");
 
-  const displayed = orders.filter((o) =>
-    filter === "PAYMENT_PENDING"
-      ? o.status === "PAYMENT_PENDING"
-      : filter === "ACTIVE"
-      ? ["PENDING", "PREPARING", "READY"].includes(o.status)
-      : o.status !== "PAYMENT_PENDING"
-  );
+  const q = search.trim().toLowerCase();
+  const displayed = orders.filter((o) => {
+    // Status filter
+    const statusOk =
+      filter === "PAYMENT_PENDING"
+        ? o.status === "PAYMENT_PENDING"
+        : filter === "ACTIVE"
+        ? ["PENDING", "PREPARING", "READY"].includes(o.status)
+        : o.status !== "PAYMENT_PENDING";
+    if (!statusOk) return false;
+    // Search filter — match order ID suffix, customer name, phone, table name
+    if (!q) return true;
+    return (
+      o.id.slice(-6).toLowerCase().includes(q) ||
+      o.customerName.toLowerCase().includes(q) ||
+      (o.phone ?? "").toLowerCase().includes(q) ||
+      (o.table?.name ?? "").toLowerCase().includes(q) ||
+      o.items.some((i) => i.name.toLowerCase().includes(q))
+    );
+  });
 
   const readyCount = orders.filter((o) => o.status === "READY").length;
 
@@ -194,6 +208,26 @@ export default function WaiterDashboard() {
         );
       })()}
 
+      {/* Search bar */}
+      <div className="relative mb-4">
+        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm">🔍</span>
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search by order ID, customer name, phone, table…"
+          className="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 placeholder-slate-400"
+        />
+        {search && (
+          <button
+            onClick={() => setSearch("")}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-lg"
+          >
+            ×
+          </button>
+        )}
+      </div>
+
       <div className="flex gap-2 mb-5 flex-wrap">
         <button
           onClick={() => setFilter("PAYMENT_PENDING")}
@@ -230,8 +264,9 @@ export default function WaiterDashboard() {
 
       {displayed.length === 0 ? (
         <div className="text-center py-20 text-slate-400">
-          <div className="text-5xl mb-3">🍽️</div>
-          <p>No orders here</p>
+          <div className="text-5xl mb-3">{q ? "🔍" : "🍽️"}</div>
+          <p>{q ? `No orders matching "${search}"` : "No orders here"}</p>
+          {q && <button onClick={() => setSearch("")} className="mt-2 text-sm text-amber-600 hover:underline">Clear search</button>}
         </div>
       ) : (
         <div className="space-y-3">
