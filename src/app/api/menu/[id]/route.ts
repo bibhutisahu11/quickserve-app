@@ -30,9 +30,8 @@ export async function PUT(
     });
     return NextResponse.json(item);
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error("PUT /api/menu error:", msg);
-    return NextResponse.json({ error: "Internal server error", detail: msg }, { status: 500 });
+    console.error("PUT /api/menu error:", err);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
@@ -60,8 +59,11 @@ export async function DELETE(
     });
     return NextResponse.json({ success: true });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error("DELETE /api/menu error:", msg);
-    return NextResponse.json({ error: "Internal server error", detail: msg }, { status: 500 });
+    console.error("DELETE /api/menu error:", err);
+    // P2025 = record not found — treat as already deleted
+    if ((err as { code?: string }).code === "P2025") {
+      return NextResponse.json({ success: true });
+    }
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
