@@ -46,6 +46,14 @@ export async function DELETE(
 
   try {
     const { id } = await params;
+
+    // Detach this menu item from any existing order items before deleting,
+    // so order history is preserved even if the FK is still NOT NULL in the DB.
+    await prisma.$executeRawUnsafe(
+      `UPDATE order_items SET "menuItemId" = NULL WHERE "menuItemId" = $1`,
+      id
+    );
+
     await prisma.menuItem.delete({
       where: { id, ...(ctx.orgId ? { orgId: ctx.orgId } : {}) },
     });
