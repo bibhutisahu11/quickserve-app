@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 import { MenuItemData } from "@/types";
 import MenuScanner from "./MenuScanner";
 
@@ -15,6 +16,9 @@ const EMPTY_FORM = {
 };
 
 export default function MenuManager() {
+  const { data: session } = useSession();
+  const isBiller = session?.user?.role === "BILLER";
+
   const [items, setItems] = useState<MenuItemData[]>([]);
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
@@ -24,9 +28,15 @@ export default function MenuManager() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [scannerOpen, setScannerOpen] = useState(false);
+  // BILLER lands directly on availability tab and cannot switch to manage
   const [tab, setTab] = useState<"manage" | "availability">("manage");
   const [pendingAvail, setPendingAvail] = useState<Record<string, boolean>>({});
   const [savingAvail, setSavingAvail] = useState(false);
+
+  // Force BILLER to availability tab
+  useEffect(() => {
+    if (isBiller) setTab("availability");
+  }, [isBiller]);
 
   async function fetchItems() {
     const res = await fetch("/api/menu");
@@ -217,36 +227,42 @@ export default function MenuManager() {
     <div className="max-w-5xl mx-auto px-4 py-6">
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Menu Management</h1>
+          <h1 className="text-2xl font-bold text-slate-800">
+            {isBiller ? "Menu Availability" : "Menu Management"}
+          </h1>
           <p className="text-slate-500 text-sm">
             {items.filter((i) => i.available).length} available · {items.filter((i) => !i.available).length} unavailable
           </p>
         </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setScannerOpen(true)}
-            className="bg-violet-500 hover:bg-violet-600 text-white font-semibold px-4 py-2.5 rounded-xl transition-colors flex items-center gap-2"
-          >
-            📷 Scan Menu
-          </button>
-          <button
-            onClick={openCreate}
-            className="bg-amber-500 hover:bg-amber-600 text-white font-semibold px-5 py-2.5 rounded-xl transition-colors flex items-center gap-2"
-          >
-            + Add Item
-          </button>
-        </div>
+        {!isBiller && (
+          <div className="flex gap-2">
+            <button
+              onClick={() => setScannerOpen(true)}
+              className="bg-violet-500 hover:bg-violet-600 text-white font-semibold px-4 py-2.5 rounded-xl transition-colors flex items-center gap-2"
+            >
+              📷 Scan Menu
+            </button>
+            <button
+              onClick={openCreate}
+              className="bg-amber-500 hover:bg-amber-600 text-white font-semibold px-5 py-2.5 rounded-xl transition-colors flex items-center gap-2"
+            >
+              + Add Item
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 bg-slate-100 p-1 rounded-xl mb-5 w-fit">
-        {(["manage", "availability"] as const).map((t) => (
-          <button key={t} onClick={() => setTab(t)}
-            className={`px-5 py-2 rounded-lg text-sm font-semibold transition-colors ${tab === t ? "bg-white shadow text-slate-800" : "text-slate-500 hover:text-slate-700"}`}>
-            {t === "manage" ? "🍴 Manage Items" : "🔄 Quick Availability"}
-          </button>
-        ))}
-      </div>
+      {/* Tabs — hidden for BILLER (they only see availability) */}
+      {!isBiller && (
+        <div className="flex gap-1 bg-slate-100 p-1 rounded-xl mb-5 w-fit">
+          {(["manage", "availability"] as const).map((t) => (
+            <button key={t} onClick={() => setTab(t)}
+              className={`px-5 py-2 rounded-lg text-sm font-semibold transition-colors ${tab === t ? "bg-white shadow text-slate-800" : "text-slate-500 hover:text-slate-700"}`}>
+              {t === "manage" ? "🍴 Manage Items" : "🔄 Quick Availability"}
+            </button>
+          ))}
+        </div>
+      )}
 
       {tab === "availability" && (
         <div className="space-y-4">

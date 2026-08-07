@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
 // PATCH /api/menu  { updates: [{id, available}] }  – bulk availability toggle
 export async function PATCH(req: NextRequest) {
   const ctx = await getOrgContext(req, {
-    requireRoles: ["SUPER_ADMIN", "HOTEL_ADMIN", "MANAGER"],
+    requireRoles: ["SUPER_ADMIN", "HOTEL_ADMIN", "MANAGER", "BILLER"],
   });
   if (ctx.error) return ctx.error;
 

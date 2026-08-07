@@ -1,6 +1,6 @@
 export type OrderType = "TABLE" | "PARCEL";
 export type OrderStatus = "PAYMENT_PENDING" | "PENDING" | "PREPARING" | "READY" | "DONE" | "CANCELLED";
-export type UserRole = "SUPER_ADMIN" | "HOTEL_ADMIN" | "MANAGER" | "WAITER" | "KITCHEN";
+export type UserRole = "SUPER_ADMIN" | "HOTEL_ADMIN" | "MANAGER" | "WAITER" | "KITCHEN" | "BILLER";
 
 export interface CartItem {
   menuItemId: string;

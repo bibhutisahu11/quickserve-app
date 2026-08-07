@@ -7,17 +7,18 @@ import { signOut, useSession } from "next-auth/react";
 import { useState } from "react";
 
 const ALL_LINKS = [
-  { href: "/admin/dashboard", label: "Dashboard",   icon: "📋", roles: ["HOTEL_ADMIN", "MANAGER"] },
-  { href: "/admin/kitchen",   label: "Kitchen",     icon: "🍳", roles: ["KITCHEN", "HOTEL_ADMIN", "MANAGER"] },
-  { href: "/admin/orders",    label: "Orders",      icon: "🤵", roles: ["WAITER", "HOTEL_ADMIN", "MANAGER"] },
-  { href: "/admin/analytics", label: "Analytics",   icon: "📊", roles: ["HOTEL_ADMIN", "MANAGER"] },
-  { href: "/admin/customers", label: "Customers",   icon: "👥", roles: ["HOTEL_ADMIN", "MANAGER"] },
-  { href: "/admin/menu",      label: "Menu",        icon: "🍴", roles: ["HOTEL_ADMIN"] },
-  { href: "/admin/tables",    label: "Tables & QR", icon: "📱", roles: ["HOTEL_ADMIN"] },
-  { href: "/admin/staff",     label: "Staff",       icon: "👔", roles: ["HOTEL_ADMIN", "MANAGER"] },
-  { href: "/admin/inventory", label: "Inventory",   icon: "📦", roles: ["HOTEL_ADMIN", "MANAGER"] },
-  { href: "/admin/expenses",  label: "Expenses",    icon: "💰", roles: ["HOTEL_ADMIN", "MANAGER"] },
-  { href: "/admin/settings",  label: "Settings",    icon: "⚙️", roles: ["HOTEL_ADMIN"] },
+  { href: "/admin/dashboard",    label: "Dashboard",    icon: "📋", roles: ["HOTEL_ADMIN", "MANAGER"] },
+  { href: "/admin/kitchen",      label: "Kitchen",      icon: "🍳", roles: ["KITCHEN", "HOTEL_ADMIN", "MANAGER"] },
+  { href: "/admin/orders",       label: "Orders",       icon: "🤵", roles: ["WAITER", "HOTEL_ADMIN", "MANAGER"] },
+  { href: "/admin/orders",       label: "Transactions", icon: "🧾", roles: ["BILLER"] },
+  { href: "/admin/analytics",    label: "Analytics",    icon: "📊", roles: ["HOTEL_ADMIN", "MANAGER"] },
+  { href: "/admin/customers",    label: "Customers",    icon: "👥", roles: ["HOTEL_ADMIN", "MANAGER"] },
+  { href: "/admin/menu",         label: "Menu",         icon: "🍴", roles: ["HOTEL_ADMIN", "BILLER"] },
+  { href: "/admin/tables",       label: "Tables & QR",  icon: "📱", roles: ["HOTEL_ADMIN"] },
+  { href: "/admin/staff",        label: "Staff",        icon: "👔", roles: ["HOTEL_ADMIN", "MANAGER"] },
+  { href: "/admin/inventory",    label: "Inventory",    icon: "📦", roles: ["HOTEL_ADMIN", "MANAGER"] },
+  { href: "/admin/expenses",     label: "Expenses",     icon: "💰", roles: ["HOTEL_ADMIN", "MANAGER"] },
+  { href: "/admin/settings",     label: "Settings",     icon: "⚙️", roles: ["HOTEL_ADMIN"] },
 ];
 
 const ROLE_LABELS: Record<string, string> = {
@@ -25,6 +26,7 @@ const ROLE_LABELS: Record<string, string> = {
   MANAGER: "Manager",
   WAITER: "Waiter",
   KITCHEN: "Kitchen",
+  BILLER: "Biller",
   SUPER_ADMIN: "Super Admin",
 };
 

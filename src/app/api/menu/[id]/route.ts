@@ -7,7 +7,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const ctx = await getOrgContext(req, {
-    requireRoles: ["SUPER_ADMIN", "HOTEL_ADMIN", "MANAGER"],
+    requireRoles: ["SUPER_ADMIN", "HOTEL_ADMIN", "MANAGER", "BILLER"],
   });
   if (ctx.error) return ctx.error;
 
@@ -40,7 +40,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const ctx = await getOrgContext(req, {
-    requireRoles: ["SUPER_ADMIN", "HOTEL_ADMIN"],
+    requireRoles: ["SUPER_ADMIN", "HOTEL_ADMIN"], // BILLER intentionally excluded
   });
   if (ctx.error) return ctx.error;
 

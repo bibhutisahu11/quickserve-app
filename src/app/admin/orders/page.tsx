@@ -9,7 +9,7 @@ export default async function WaiterOrdersPage() {
   const session = await getServerSession(authOptions);
   if (!session) redirect("/admin");
   const role = session.user.role;
-  if (!["WAITER", "HOTEL_ADMIN", "MANAGER", "SUPER_ADMIN"].includes(role)) {
+  if (!["WAITER", "HOTEL_ADMIN", "MANAGER", "SUPER_ADMIN", "BILLER"].includes(role)) {
     redirect("/admin/dashboard");
   }
   return <WaiterDashboard />;

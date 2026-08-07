@@ -10,6 +10,7 @@ const ROLE_LABELS: Record<UserRole, string> = {
   MANAGER: "Manager",
   WAITER: "Waiter / Staff",
   KITCHEN: "Kitchen",
+  BILLER: "Biller",
 };
 
 const ROLE_COLORS: Record<UserRole, string> = {
@@ -18,6 +19,7 @@ const ROLE_COLORS: Record<UserRole, string> = {
   MANAGER: "bg-blue-100 text-blue-700",
   WAITER: "bg-green-100 text-green-700",
   KITCHEN: "bg-orange-100 text-orange-700",
+  BILLER: "bg-teal-100 text-teal-700",
 };
 
 const CREATABLE_ROLES: { value: UserRole; label: string }[] = [
@@ -25,6 +27,7 @@ const CREATABLE_ROLES: { value: UserRole; label: string }[] = [
   { value: "MANAGER", label: "Manager" },
   { value: "WAITER", label: "Waiter / Staff" },
   { value: "KITCHEN", label: "Kitchen" },
+  { value: "BILLER", label: "Biller" },
 ];
 
 const EMPTY_FORM = { name: "", email: "", role: "WAITER" as UserRole, password: "" };

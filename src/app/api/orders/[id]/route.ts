@@ -38,7 +38,7 @@ export async function PATCH(
     // paymentAction: "ACCEPT" → move to PENDING + mark verified
     //                "REJECT" → move to CANCELLED
     if (paymentAction) {
-      if (!["HOTEL_ADMIN", "MANAGER", "SUPER_ADMIN"].includes(role)) {
+      if (!["HOTEL_ADMIN", "MANAGER", "SUPER_ADMIN", "BILLER"].includes(role)) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
       const order = await prisma.order.findUnique({ where: { id } });
@@ -76,6 +76,13 @@ export async function PATCH(
       const allowed = ["PREPARING", "DONE", "CANCELLED"];
       if (!allowed.includes(status)) {
         return NextResponse.json({ error: "Waiter cannot set this status" }, { status: 403 });
+      }
+    }
+    // BILLER can move orders through any active status
+    if (role === "BILLER") {
+      const allowed = ["PENDING", "PREPARING", "READY", "DONE", "CANCELLED"];
+      if (!allowed.includes(status)) {
+        return NextResponse.json({ error: "Biller cannot set this status" }, { status: 403 });
       }
     }
 
