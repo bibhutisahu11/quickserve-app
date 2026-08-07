@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useRef } from "react";
-import { CartItem } from "@/types";
+import { useState, useRef, useEffect } from "react";
+import { CartItem, DiscountData, AppliedDiscount } from "@/types";
 import { validatePhone, validateEmail } from "@/lib/validators";
+import { applyDiscounts, totalDiscount, DAY_NAMES } from "@/lib/discountEngine";
 
 interface CheckoutModalProps {
   open: boolean;
@@ -17,9 +18,11 @@ interface CheckoutModalProps {
     birthday: string,
     upiUtr?: string,
     paymentScreenshot?: string,
+    discountAmount?: number,
   ) => Promise<void>;
   isParcel: boolean;
   orgUpiId: string | null;
+  orgSlug?: string;
 }
 
 // UTR validation: 6–22 alphanumeric characters (covers NEFT/IMPS/UPI formats)
@@ -40,6 +43,7 @@ export default function CheckoutModal({
   onPlaceOrder,
   isParcel,
   orgUpiId,
+  orgSlug,
 }: CheckoutModalProps) {
   /* ── step 1 fields ── */
   const [name, setName]       = useState("");
@@ -59,12 +63,25 @@ export default function CheckoutModal({
   const [screenshotError, setScreenshotError] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
+  /* ── discounts ── */
+  const [discounts, setDiscounts] = useState<DiscountData[]>([]);
+  useEffect(() => {
+    if (!open || !orgSlug) return;
+    fetch(`/api/public/discounts?orgSlug=${orgSlug}`)
+      .then((r) => r.ok ? r.json() : [])
+      .then(setDiscounts)
+      .catch(() => {});
+  }, [open, orgSlug]);
+
   /* ── shared ── */
   const [step, setStep]     = useState<1 | 2>(1);
   const [loading, setLoading] = useState(false);
   const [error, setError]   = useState("");
 
-  const total = cart.reduce((s, i) => s + i.price * i.quantity, 0);
+  const subtotal = cart.reduce((s, i) => s + i.price * i.quantity, 0);
+  const appliedDiscounts: AppliedDiscount[] = applyDiscounts(discounts, cart, subtotal);
+  const discountAmount = totalDiscount(appliedDiscounts);
+  const total = Math.max(0, subtotal - discountAmount);
   const requirePayment = !!orgUpiId;
 
   if (!open) return null;
@@ -130,6 +147,7 @@ export default function CheckoutModal({
         name, phone, notes, address, email, birthday,
         requirePayment ? upiUtr.trim() : undefined,
         requirePayment ? screenshot ?? undefined : undefined,
+        discountAmount > 0 ? discountAmount : undefined,
       );
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Something went wrong");
@@ -192,9 +210,28 @@ export default function CheckoutModal({
                   <span className="font-medium text-slate-800">₹{(item.price * item.quantity).toFixed(2)}</span>
                 </div>
               ))}
+              {appliedDiscounts.length > 0 && (
+                <>
+                  <div className="border-t border-slate-200 pt-2 flex justify-between text-sm text-slate-500">
+                    <span>Subtotal</span>
+                    <span>₹{subtotal.toFixed(2)}</span>
+                  </div>
+                  {appliedDiscounts.map(({ discount, saving }) => (
+                    <div key={discount.id} className="flex justify-between text-sm text-green-700 font-medium">
+                      <span className="flex items-center gap-1">
+                        🏷️ {discount.name}
+                        {discount.daysOfWeek.length > 0 && (
+                          <span className="text-xs text-green-500">({discount.daysOfWeek.map((d) => DAY_NAMES[d]).join(", ")})</span>
+                        )}
+                      </span>
+                      <span>−₹{saving.toFixed(2)}</span>
+                    </div>
+                  ))}
+                </>
+              )}
               <div className="border-t border-slate-200 pt-2 flex justify-between font-bold">
                 <span>Total</span>
-                <span className="text-amber-600">₹{total.toFixed(2)}</span>
+                <span className={appliedDiscounts.length > 0 ? "text-green-600" : "text-amber-600"}>₹{total.toFixed(2)}</span>
               </div>
             </div>
 

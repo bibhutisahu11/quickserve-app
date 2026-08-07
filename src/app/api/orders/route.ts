@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { type, tableToken, orgSlug, customerName, phone, email, birthday, deliveryAddress, notes, items, upiUtr, paymentScreenshot } = body;
+    const { type, tableToken, orgSlug, customerName, phone, email, birthday, deliveryAddress, notes, items, upiUtr, paymentScreenshot, discountAmount } = body;
 
     if (!type || !customerName || !items?.length) {
       return NextResponse.json(
@@ -87,10 +87,10 @@ export async function POST(req: NextRequest) {
     }
 
     const menuMap = new Map(menuItems.map((m) => [m.id, m]));
-    let total = 0;
+    let subtotal = 0;
     const orderItemsData = items.map((item: { menuItemId: string; quantity: number }) => {
       const menuItem = menuMap.get(item.menuItemId)!;
-      total += menuItem.price * item.quantity;
+      subtotal += menuItem.price * item.quantity;
       return {
         menuItemId: item.menuItemId,
         name: menuItem.name,
@@ -98,6 +98,9 @@ export async function POST(req: NextRequest) {
         quantity: item.quantity,
       };
     });
+
+    const appliedDiscount = Math.min(Number(discountAmount) || 0, subtotal);
+    const total = Math.max(0, subtotal - appliedDiscount);
 
     const order = await prisma.order.create({
       data: {
@@ -110,6 +113,7 @@ export async function POST(req: NextRequest) {
         birthday: birthday ?? null,
         deliveryAddress: deliveryAddress ?? null,
         notes: notes ?? null,
+        discountAmount: appliedDiscount,
         total,
         // If org has UPI, order waits for admin verification before entering the kitchen queue
         status: orgUpiId ? "PAYMENT_PENDING" : "PENDING",

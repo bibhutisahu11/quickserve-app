@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { MenuItemData, CartItem } from "@/types";
 import MenuCard from "./MenuCard";
@@ -33,12 +33,42 @@ function suggestedCategory(categories: string[], keywords: string[]): string | n
   return null;
 }
 
+interface LastOrder { items: CartItem[]; phone: string | null; savedAt: string; }
+
 export default function MenuPage({ menuItems, tableToken, tableName, orgSlug, orgName, orgUpiId }: MenuPageProps) {
   const router = useRouter();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [cartOpen, setCartOpen] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [showGreeting, setShowGreeting] = useState(true);
+  const [lastOrder, setLastOrder] = useState<LastOrder | null>(null);
+  const [showReorderBanner, setShowReorderBanner] = useState(false);
+
+  // Load previous order from localStorage
+  useEffect(() => {
+    if (!orgSlug) return;
+    try {
+      const raw = localStorage.getItem(`lastOrder_${orgSlug}`);
+      if (!raw) return;
+      const parsed: LastOrder = JSON.parse(raw);
+      // Only show if saved within last 30 days and has items still available
+      const ageMs = Date.now() - new Date(parsed.savedAt).getTime();
+      if (ageMs < 30 * 24 * 60 * 60 * 1000 && parsed.items.length > 0) {
+        setLastOrder(parsed);
+        setShowReorderBanner(true);
+      }
+    } catch { /* ignore */ }
+  }, [orgSlug]);
+
+  const handleReorder = useCallback(() => {
+    if (!lastOrder) return;
+    // Only add items that are still available on the current menu
+    const availableIds = new Set(menuItems.filter((m) => m.available).map((m) => m.id));
+    const validItems = lastOrder.items.filter((i) => availableIds.has(i.menuItemId));
+    if (validItems.length > 0) setCart(validItems);
+    setShowReorderBanner(false);
+    setCartOpen(true);
+  }, [lastOrder, menuItems]);
 
   const timeCtx = useMemo(() => getTimeContext(), []);
 
@@ -113,7 +143,19 @@ export default function MenuPage({ menuItems, tableToken, tableName, orgSlug, or
     birthday: string,
     upiUtr?: string,
     paymentScreenshot?: string,
+    discountAmount?: number,
   ) {
+    // Save cart to localStorage for reorder (keyed by phone or anonymous)
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem(`lastOrder_${orgSlug}`, JSON.stringify({
+          items: cart,
+          phone: phone || null,
+          savedAt: new Date().toISOString(),
+        }));
+      } catch { /* ignore */ }
+    }
+
     const body = {
       type: tableToken ? "TABLE" : "PARCEL",
       tableToken: tableToken ?? undefined,
@@ -126,6 +168,7 @@ export default function MenuPage({ menuItems, tableToken, tableName, orgSlug, or
       notes: notes || undefined,
       upiUtr: upiUtr || undefined,
       paymentScreenshot: paymentScreenshot || undefined,
+      discountAmount: discountAmount ?? 0,
       items: cart.map((c) => ({ menuItemId: c.menuItemId, quantity: c.quantity })),
     };
 
@@ -203,6 +246,32 @@ export default function MenuPage({ menuItems, tableToken, tableName, orgSlug, or
               </div>
             </div>
             <button onClick={() => setShowGreeting(false)} className="text-slate-300 hover:text-slate-500 text-xl leading-none flex-shrink-0 ml-3">×</button>
+          </div>
+        </div>
+      )}
+
+      {/* Reorder banner */}
+      {showReorderBanner && lastOrder && (
+        <div className="max-w-2xl mx-auto px-4 pt-3">
+          <div className="bg-gradient-to-r from-indigo-50 to-violet-50 border border-indigo-200 rounded-2xl px-5 py-3 flex items-center justify-between shadow-sm">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">🔄</span>
+              <div>
+                <p className="font-bold text-slate-800 text-sm">Welcome back!</p>
+                <p className="text-xs text-slate-500">
+                  {lastOrder.items.length} item{lastOrder.items.length > 1 ? "s" : ""} from your last visit
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleReorder}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-colors"
+              >
+                Reorder
+              </button>
+              <button onClick={() => setShowReorderBanner(false)} className="text-slate-300 hover:text-slate-500 text-lg leading-none">×</button>
+            </div>
           </div>
         </div>
       )}
@@ -290,6 +359,7 @@ export default function MenuPage({ menuItems, tableToken, tableName, orgSlug, or
         onPlaceOrder={handlePlaceOrder}
         isParcel={!tableToken}
         orgUpiId={orgUpiId ?? null}
+        orgSlug={orgSlug}
       />
     </div>
   );

@@ -19,6 +19,7 @@ const ALL_LINKS = [
   { href: "/admin/staff",        label: "Staff",        icon: "👔", roles: ["HOTEL_ADMIN", "MANAGER"] },
   { href: "/admin/inventory",    label: "Inventory",    icon: "📦", roles: ["HOTEL_ADMIN", "MANAGER"] },
   { href: "/admin/expenses",     label: "Expenses",     icon: "💰", roles: ["HOTEL_ADMIN", "MANAGER"] },
+  { href: "/admin/discounts",    label: "Discounts",    icon: "🏷️",  roles: ["HOTEL_ADMIN", "MANAGER"] },
   { href: "/admin/settings",     label: "Settings",     icon: "⚙️", roles: ["HOTEL_ADMIN"] },
 ];
 

@@ -71,6 +71,7 @@ model Organization {
   orders      Order[]
   inventory   InventoryItem[]
   expenses    Expense[]
+  discounts   Discount[]
 
   @@map("organizations")
 }
@@ -131,6 +132,7 @@ model Order {
   deliveryAddress   String?
   notes             String?
   status            OrderStatus   @default(PENDING)
+  discountAmount    Float         @default(0)
   total             Float
   paymentId         String?
   upiUtr            String?
@@ -174,6 +176,31 @@ model Expense {
   updatedAt   DateTime      @updatedAt
 
   @@map("expenses")
+}
+
+model Discount {
+  id          String        @id @default(cuid())
+  orgId       String
+  org         Organization  @relation(fields: [orgId], references: [id])
+  name        String
+  description String?
+  // "PERCENTAGE" or "FLAT"
+  type        String
+  value       Float
+  // scope: "ALL" | "DAYS" | "ITEMS" | "CATEGORIES"
+  scope       String        @default("ALL")
+  itemIds     String[]      @default([])
+  categories  String[]      @default([])
+  // 0=Sun 1=Mon 2=Tue 3=Wed 4=Thu 5=Fri 6=Sat — empty means every day
+  daysOfWeek  Int[]         @default([])
+  minOrder    Float?
+  active      Boolean       @default(true)
+  validFrom   DateTime?
+  validTo     DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@map("discounts")
 }
 
 enum OrderType {

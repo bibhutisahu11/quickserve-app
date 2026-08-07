@@ -36,6 +36,31 @@ export interface OrderItemData {
   menuItemId: string;
 }
 
+export type DiscountType = "PERCENTAGE" | "FLAT";
+export type DiscountScope = "ALL" | "DAYS" | "ITEMS" | "CATEGORIES";
+
+export interface DiscountData {
+  id: string;
+  name: string;
+  description: string | null;
+  type: DiscountType;
+  value: number;
+  scope: DiscountScope;
+  itemIds: string[];
+  categories: string[];
+  daysOfWeek: number[];
+  minOrder: number | null;
+  active: boolean;
+  validFrom: string | null;
+  validTo: string | null;
+  createdAt: string;
+}
+
+export interface AppliedDiscount {
+  discount: DiscountData;
+  saving: number;
+}
+
 export interface OrderData {
   id: string;
   type: OrderType;
@@ -48,6 +73,7 @@ export interface OrderData {
   deliveryAddress: string | null;
   notes: string | null;
   status: OrderStatus;
+  discountAmount: number;
   total: number;
   paymentId: string | null;
   upiUtr: string | null;

@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useEffect, useState, useRef } from "react";
+import { useParams, useRouter } from "next/navigation";
 import { OrderData, OrderStatus } from "@/types";
 
 const STATUS_CONFIG: Record<
@@ -23,8 +23,11 @@ const STEPS: { key: OrderStatus; label: string; icon: string }[] = [
   { key: "DONE",      label: "Done",     icon: "🎉" },
 ];
 
+const AUTO_LOGOUT_SECS = 30 * 60; // 30 minutes after DONE
+
 export default function OrderStatusPage() {
   const { orderId } = useParams<{ orderId: string }>();
+  const router = useRouter();
   const [order, setOrder]       = useState<OrderData | null>(null);
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState("");
@@ -33,7 +36,11 @@ export default function OrderStatusPage() {
   // Nudge state
   const [nudging, setNudging]       = useState(false);
   const [nudgeMsg, setNudgeMsg]     = useState("");
-  const [nudgeCooldown, setNudgeCooldown] = useState(0); // seconds remaining
+  const [nudgeCooldown, setNudgeCooldown] = useState(0);
+
+  // Auto-logout countdown (starts when order becomes DONE)
+  const [logoutCountdown, setLogoutCountdown] = useState<number | null>(null);
+  const doneTimeRef = useRef<number | null>(null);
 
   async function fetchOrder() {
     try {
@@ -83,6 +90,27 @@ export default function OrderStatusPage() {
     const t = setInterval(() => setNudgeCooldown((n) => Math.max(0, n - 1)), 1000);
     return () => clearInterval(t);
   }, [nudgeCooldown]);
+
+  // Start 30-min auto-logout countdown when order status becomes DONE
+  useEffect(() => {
+    if (order?.status !== "DONE") return;
+    if (doneTimeRef.current === null) doneTimeRef.current = Date.now();
+    const tick = () => {
+      const elapsed = Math.floor((Date.now() - doneTimeRef.current!) / 1000);
+      const remaining = AUTO_LOGOUT_SECS - elapsed;
+      if (remaining <= 0) {
+        // Clear any stored session data and redirect to home
+        try { localStorage.removeItem("orderId"); } catch { /* ignore */ }
+        router.replace("/");
+      } else {
+        setLogoutCountdown(remaining);
+      }
+    };
+    tick();
+    const t = setInterval(tick, 1000);
+    return () => clearInterval(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [order?.status]);
 
   useEffect(() => {
     fetchOrder();
@@ -263,9 +291,15 @@ export default function OrderStatusPage() {
             ))}
           </div>
 
+          {order.discountAmount > 0 && (
+            <div className="flex justify-between text-sm text-green-700 font-medium">
+              <span>🏷️ Discount Applied</span>
+              <span>−₹{order.discountAmount.toFixed(2)}</span>
+            </div>
+          )}
           <div className="border-t border-slate-100 pt-3 flex justify-between font-bold">
             <span className="text-slate-700">Total</span>
-            <span className="text-amber-600 text-lg">₹{order.total.toFixed(2)}</span>
+            <span className={order.discountAmount > 0 ? "text-green-600 text-lg" : "text-amber-600 text-lg"}>₹{order.total.toFixed(2)}</span>
           </div>
 
           {order.notes && (
@@ -281,6 +315,19 @@ export default function OrderStatusPage() {
           <p className="text-slate-800">{order.customerName}</p>
           {order.phone && <p className="text-slate-500 text-sm">{order.phone}</p>}
         </div>
+
+        {/* Auto-logout countdown */}
+        {logoutCountdown !== null && order?.status === "DONE" && (
+          <div className="bg-slate-100 border border-slate-200 rounded-2xl px-5 py-4 text-center">
+            <p className="text-sm text-slate-500">
+              🕐 Your session will expire in{" "}
+              <span className="font-bold text-slate-700">
+                {Math.floor(logoutCountdown / 60)}:{String(logoutCountdown % 60).padStart(2, "0")}
+              </span>
+            </p>
+            <p className="text-xs text-slate-400 mt-0.5">You will be redirected automatically</p>
+          </div>
+        )}
 
         <p className="text-center text-xs text-slate-400">
           This page refreshes automatically every 10 seconds
